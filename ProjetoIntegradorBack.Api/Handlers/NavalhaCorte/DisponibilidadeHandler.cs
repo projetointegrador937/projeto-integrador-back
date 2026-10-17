@@ -1,0 +1,3 @@
+using ProjetoIntegradorBack.Api.Queries; using ProjetoIntegradorBack.Domain.DTOs; using ProjetoIntegradorBack.Domain.Interfaces; using Prime.Architecture.Mediator.Standard.Requests;
+namespace ProjetoIntegradorBack.Api.Handlers.NavalhaCorte;
+public class HorariosDisponiveisHandler(IDisponibilidadeService s):IRequestHandler<HorariosDisponiveisQuery,List<HorarioDisponivelDto>>{public async Task<List<HorarioDisponivelDto>> Handle(HorariosDisponiveisQuery q,CancellationToken c){var x=await s.ObterHorariosDisponiveisAsync(q.EstabelecimentoId,q.FuncionarioId,q.ServicoId,q.Data,c);return x.IsSuccess?x.Success!.Select(h=>new HorarioDisponivelDto{Horario=h,Disponivel=true}).ToList():[];}}
