@@ -88,6 +88,19 @@ jobs:
           JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}
           EOF
 
+      - name: Instalar Nginx e Certbot na EC2
+        run: |
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
+          set -e
+          if ! command -v nginx >/dev/null 2>&1; then
+            sudo dnf install -y nginx || sudo yum install -y nginx
+            sudo systemctl enable nginx
+          fi
+          if ! command -v certbot >/dev/null 2>&1; then
+            sudo dnf install -y certbot python3-certbot-nginx || sudo yum install -y certbot python3-certbot-nginx
+          fi
+          EOF
+
       - name: Build e subir containers com Docker Compose
         run: |
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
@@ -96,6 +109,48 @@ jobs:
           sudo docker compose build --no-cache api
           sudo docker compose up -d --remove-orphans
           sudo docker compose ps
+          EOF
+
+      - name: Configurar Nginx como proxy reverso HTTP
+        run: |
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
+          set -e
+          sudo tee /etc/nginx/conf.d/api-navalhacorte.conf > /dev/null << 'NGINX'
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name api-navalhacorte.ddns.net;
+
+              location / {
+                  proxy_pass http://127.0.0.1:8080;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_read_timeout 60s;
+              }
+          }
+          NGINX
+          sudo nginx -t
+          sudo systemctl restart nginx
+          EOF
+
+      - name: Emitir ou renovar certificado Let's Encrypt
+        env:
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
+        run: |
+          if [ -z "$CERTBOT_EMAIL" ]; then
+            echo "O secret CERTBOT_EMAIL precisa ser configurado no GitHub."
+            exit 1
+          fi
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash -s -- "$CERTBOT_EMAIL" << 'EOF'
+          set -e
+          CERTBOT_EMAIL="$1"
+          sudo certbot --nginx             --non-interactive             --agree-tos             --email "$CERTBOT_EMAIL"             --redirect             --keep-until-expiring             -d api-navalhacorte.ddns.net
+          sudo systemctl enable certbot-renew.timer 2>/dev/null || true
+          sudo systemctl enable certbot-renew 2>/dev/null || true
+          sudo certbot renew --dry-run
           EOF
 
       - name: Aguardar API ficar saudável
