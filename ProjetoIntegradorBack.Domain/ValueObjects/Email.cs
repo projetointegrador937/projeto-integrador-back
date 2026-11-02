@@ -15,7 +15,8 @@ namespace ProjetoIntegradorBack.Domain.ValueObjects
             if (failure != null)
                 return Result<Email>.AsFailure(failure);
 
-            var splitEmail = email.Split("@");
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+            var splitEmail = normalizedEmail.Split("@", 2);
             var newEmail = new Email();
             newEmail.UserName = splitEmail[0];
             newEmail.Domain = splitEmail[1];

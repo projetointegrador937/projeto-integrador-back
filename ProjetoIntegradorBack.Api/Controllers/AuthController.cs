@@ -12,20 +12,54 @@ namespace ProjetoIntegradorBack.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
-public sealed class AuthController(IUserRepository users, IRefreshTokenRepository refreshTokens, IJwtTokenService jwt, IMapper mapper) : ControllerBase
+public sealed class AuthController(
+    IUserRepository users,
+    IRefreshTokenRepository refreshTokens,
+    IJwtTokenService jwt,
+    IMapper mapper,
+    ILogger<AuthController> logger) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginCommand command, CancellationToken ct)
     {
-        var result = await users.GetUserByEmailAsync(command.Email);
-        if (result.IsFailure || result.Success is null || !BCryptHash.Verify(command.Password, result.Success.Password))
+        if (string.IsNullOrWhiteSpace(command.Email) || string.IsNullOrWhiteSpace(command.Password))
             return Unauthorized(new { mensagem = "E-mail ou senha inválidos." });
 
-        var user = result.Success;
-        var refresh = jwt.GenerateRefreshToken();
-        await refreshTokens.AddAsync(new RefreshToken { UserId = user.Id, Token = refresh, ExpiresAt = DateTime.UtcNow.AddDays(7), DeviceInfo = Request.Headers.UserAgent.ToString() }, ct);
-        return Ok(new AuthResponseDto { AccessToken = jwt.GenerateAccessToken(user), RefreshToken = refresh, User = mapper.Map<ClientUser, UserDto>(user) });
+        try
+        {
+            var result = await users.GetUserByEmailAsync(command.Email);
+            if (result.IsFailure || result.Success is null || !BCryptHash.Verify(command.Password, result.Success.Password))
+                return Unauthorized(new { mensagem = "E-mail ou senha inválidos." });
+
+            var user = result.Success;
+            var refresh = jwt.GenerateRefreshToken();
+            var refreshResult = await refreshTokens.AddAsync(new RefreshToken
+            {
+                UserId = user.Id,
+                Token = refresh,
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                DeviceInfo = Request.Headers.UserAgent.ToString()
+            }, ct);
+
+            if (refreshResult.IsFailure)
+            {
+                logger.LogError("Não foi possível criar o refresh token para o usuário {UserId}: {Failure}", user.Id, refreshResult.Failure);
+                return Problem("Não foi possível concluir o login.", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            return Ok(new AuthResponseDto
+            {
+                AccessToken = jwt.GenerateAccessToken(user),
+                RefreshToken = refresh,
+                User = mapper.Map<ClientUser, UserDto>(user)
+            });
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Erro inesperado ao autenticar o e-mail {Email}", command.Email);
+            return Problem("Não foi possível concluir o login.", statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     [AllowAnonymous]
@@ -62,5 +96,6 @@ public sealed class AuthController(IUserRepository users, IRefreshTokenRepositor
 
     [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] string refreshToken, CancellationToken ct) => Ok(await refreshTokens.RevogarAsync(refreshToken, ct));
+    public async Task<IActionResult> Logout([FromBody] string refreshToken, CancellationToken ct)
+        => Ok(await refreshTokens.RevogarAsync(refreshToken, ct));
 }

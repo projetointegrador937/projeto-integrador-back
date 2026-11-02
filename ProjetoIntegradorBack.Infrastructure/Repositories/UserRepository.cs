@@ -55,8 +55,19 @@ namespace ProjetoIntegradorBack.Infrastructure.Repositories
 
         public async Task<Result<ClientUser>> GetUserByEmailAsync(string email)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(x => x.Email.UserName + "@" + x.Email.Domain == email);
-            return user == null ? Result<ClientUser>.AsFailure(new Failure(404, "Usuário não encontrado.")) : Result<ClientUser>.AsSuccess(user);
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+            var atIndex = normalizedEmail.IndexOf('@');
+            if (atIndex <= 0 || atIndex == normalizedEmail.Length - 1)
+                return Result<ClientUser>.AsFailure(new Failure(400, "E-mail inválido."));
+
+            var userName = normalizedEmail[..atIndex];
+            var domain = normalizedEmail[(atIndex + 1)..];
+            var user = await _context.Users
+                .FirstOrDefaultAsync(x => x.Email.UserName == userName && x.Email.Domain == domain);
+
+            return user == null
+                ? Result<ClientUser>.AsFailure(new Failure(404, "Usuário não encontrado."))
+                : Result<ClientUser>.AsSuccess(user);
         }
 
         public async Task<Result<ClientUser>> GetUserByIdAsync(Guid id)

@@ -1,45 +1,43 @@
-﻿using ProjetoIntegradorBack.Api.Commands;
+using BCryptHash = BCrypt.Net.BCrypt;
+using FluentValidation;
+using ProjetoIntegradorBack.Api.Commands;
 using ProjetoIntegradorBack.Domain.Entities;
 using ProjetoIntegradorBack.Domain.Interfaces;
 using ProjetoIntegradorBack.Shared.Pattern;
-using FluentValidation;
-using System.Data;
-using BCryptHash = BCrypt.Net.BCrypt;
 
-namespace ProjetoIntegradorBack.Api.Handlers
+namespace ProjetoIntegradorBack.Api.Handlers;
+
+public class UserHandler(
+    IUserRepository userRepository,
+    IValidator<CreateUserCommand> validator)
 {
-    public class UserHandler
+    public async Task<Result<string>> HandleCreateUser(CreateUserCommand command)
     {
-        private readonly IUserRepository _userRepository;
-        private readonly IValidator<CreateUserCommand> _validator;
-
-        public UserHandler(IUserRepository userRepository, IValidator<CreateUserCommand> validator)
+        var validationResult = validator.Validate(command);
+        if (!validationResult.IsValid)
         {
-            _userRepository = userRepository;
-            _validator = validator;
+            return Result<string>.AsFailure(new Failure(
+                400,
+                string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage))));
         }
 
-        public async Task<Result<string>> HandleCreateUser(CreateUserCommand command)
-        {
-            var validationResult = _validator.Validate(command);
-            if (!validationResult.IsValid)
-            {
-                return Result<string>.AsFailure(new Failure(
-                    400, string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)))
-                );
-            }
+        var userResult = ClientUser.CreateUser(
+            command.Email.Trim(),
+            BCryptHash.HashPassword(command.Password),
+            command.ProfilePictureUrl ?? string.Empty,
+            command.Name.Trim());
 
-            var user = ClientUser.CreateUser(
-                command.Email,
-                BCryptHash.HashPassword(command.Password),
-                command.ProfilePictureUrl,
-                command.Name
-            );
+        if (userResult.IsFailure || userResult.Success is null)
+            return Result<string>.AsFailure(userResult.Failure!);
 
-            var userDb = await _userRepository.AddUserAsync(user.Success);
-            return Result<string>.AsSuccess($"User created successfully");
-        }
+        var existingUser = await userRepository.GetUserByEmailAsync(command.Email);
+        if (existingUser.IsSuccess)
+            return Result<string>.AsFailure(new Failure(409, "E-mail já cadastrado."));
 
+        var savedUser = await userRepository.AddUserAsync(userResult.Success);
+        if (savedUser.IsFailure)
+            return Result<string>.AsFailure(savedUser.Failure!);
 
+        return Result<string>.AsSuccess("User created successfully");
     }
 }
