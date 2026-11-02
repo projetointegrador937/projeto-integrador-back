@@ -21,7 +21,7 @@ jobs:
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -H 3.16.111.34 >> ~/.ssh/known_hosts
 
-      - name: Instalar/atualizar Docker e buildx na EC2
+      - name: Instalar/atualizar Docker e plugins na EC2
         run: |
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
           set -e
@@ -38,22 +38,22 @@ jobs:
             echo "Docker ja instalado: $(docker --version)"
           fi
 
-          # Docker Compose plugin
-          COMPOSE_PATH=/usr/local/lib/docker/cli-plugins/docker-compose
-          sudo mkdir -p /usr/local/lib/docker/cli-plugins
-          echo "Instalando Docker Compose plugin..."
-          sudo curl -fsSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
-            -o $COMPOSE_PATH
-          sudo chmod +x $COMPOSE_PATH
-          echo "Docker Compose: $(sudo docker compose version)"
+          # Descobre a versao mais recente do buildx e compose via API do GitHub
+          BUILDX_VERSION=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest | grep tag_name | cut -d'"' -f4)
+          COMPOSE_VERSION=$(curl -fsSL https://api.github.com/repos/docker/compose/releases/latest | grep tag_name | cut -d'"' -f4)
 
-          # Buildx plugin
-          BUILDX_PATH=/usr/local/lib/docker/cli-plugins/docker-buildx
-          echo "Instalando Docker Buildx..."
-          sudo curl -fsSL https://github.com/docker/buildx/releases/latest/download/buildx-v0.20.0.linux-amd64 \
-            -o $BUILDX_PATH
-          sudo chmod +x $BUILDX_PATH
-          echo "Buildx: $(sudo docker buildx version)"
+          echo "Instalando buildx $BUILDX_VERSION em /usr/libexec/docker/cli-plugins/..."
+          sudo curl -fsSL "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
+            -o /usr/libexec/docker/cli-plugins/docker-buildx
+          sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+          echo "Buildx: $(docker buildx version)"
+
+          echo "Instalando Docker Compose $COMPOSE_VERSION..."
+          sudo mkdir -p /usr/local/lib/docker/cli-plugins
+          sudo curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          echo "Compose: $(sudo docker compose version)"
           EOF
 
       - name: Copiar arquivos para a EC2
