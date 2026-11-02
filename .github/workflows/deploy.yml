@@ -29,12 +29,12 @@ jobs:
             --exclude='.github' \
             --exclude='**/bin' \
             --exclude='**/obj' \
-            ./ ubuntu@3.16.111.34:/home/ubuntu/projeto-integrador-back/
+            ./ ec2-user@3.16.111.34:/home/ec2-user/projeto-integrador-back/
 
       - name: Criar arquivo .env na EC2
         run: |
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@3.16.111.34 \
-            "cat > /home/ubuntu/projeto-integrador-back/.env" << 'ENVEOF'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 \
+            "cat > /home/ec2-user/projeto-integrador-back/.env" << 'ENVEOF'
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
@@ -48,9 +48,9 @@ jobs:
 
       - name: Build e subir containers com Docker Compose
         run: |
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@3.16.111.34 bash << 'EOF'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
           set -e
-          cd /home/ubuntu/projeto-integrador-back
+          cd /home/ec2-user/projeto-integrador-back
           docker compose build --no-cache api
           docker compose up -d --remove-orphans
           docker compose ps
@@ -58,7 +58,7 @@ jobs:
 
       - name: Aguardar API ficar saudável
         run: |
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@3.16.111.34 bash << 'EOF'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
           set -e
           echo "Aguardando API responder..."
           for i in $(seq 1 24); do
@@ -70,6 +70,6 @@ jobs:
             sleep 5
           done
           echo "Timeout: API nao respondeu em 120s. Logs:"
-          docker compose -f /home/ubuntu/projeto-integrador-back/docker-compose.yml logs api --tail=50
+          docker compose -f /home/ec2-user/projeto-integrador-back/docker-compose.yml logs api --tail=50
           exit 1
           EOF
