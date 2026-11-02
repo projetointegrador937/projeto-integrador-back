@@ -21,32 +21,39 @@ jobs:
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -H 3.16.111.34 >> ~/.ssh/known_hosts
 
-      - name: Instalar Docker na EC2 (se necessário)
+      - name: Instalar/atualizar Docker e buildx na EC2
         run: |
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
           set -e
 
-          if command -v docker &> /dev/null; then
+          # Docker
+          if ! command -v docker &> /dev/null; then
+            echo "Instalando Docker..."
+            sudo yum update -y
+            sudo yum install -y docker
+            sudo systemctl enable docker
+            sudo systemctl start docker
+            sudo usermod -aG docker ec2-user
+          else
             echo "Docker ja instalado: $(docker --version)"
-            exit 0
           fi
 
-          echo "Instalando Docker..."
-          sudo yum update -y
-          sudo yum install -y docker
-          sudo systemctl enable docker
-          sudo systemctl start docker
-          sudo usermod -aG docker ec2-user
-
+          # Docker Compose plugin
+          COMPOSE_PATH=/usr/local/lib/docker/cli-plugins/docker-compose
+          sudo mkdir -p /usr/local/lib/docker/cli-plugins
           echo "Instalando Docker Compose plugin..."
-          DOCKER_CONFIG=/usr/local/lib/docker
-          sudo mkdir -p $DOCKER_CONFIG/cli-plugins
-          sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
-            -o $DOCKER_CONFIG/cli-plugins/docker-compose
-          sudo chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+          sudo curl -fsSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+            -o $COMPOSE_PATH
+          sudo chmod +x $COMPOSE_PATH
+          echo "Docker Compose: $(sudo docker compose version)"
 
-          echo "Docker instalado: $(docker --version)"
-          echo "Docker Compose instalado: $(docker compose version)"
+          # Buildx plugin
+          BUILDX_PATH=/usr/local/lib/docker/cli-plugins/docker-buildx
+          echo "Instalando Docker Buildx..."
+          sudo curl -fsSL https://github.com/docker/buildx/releases/latest/download/buildx-v0.20.0.linux-amd64 \
+            -o $BUILDX_PATH
+          sudo chmod +x $BUILDX_PATH
+          echo "Buildx: $(sudo docker buildx version)"
           EOF
 
       - name: Copiar arquivos para a EC2
@@ -86,9 +93,9 @@ jobs:
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
           set -e
           cd /home/ec2-user/projeto-integrador-back
-          docker compose build --no-cache api
-          docker compose up -d --remove-orphans
-          docker compose ps
+          sudo docker compose build --no-cache api
+          sudo docker compose up -d --remove-orphans
+          sudo docker compose ps
           EOF
 
       - name: Aguardar API ficar saudável
@@ -105,6 +112,6 @@ jobs:
             sleep 5
           done
           echo "Timeout: API nao respondeu em 120s. Logs:"
-          docker compose -f /home/ec2-user/projeto-integrador-back/docker-compose.yml logs api --tail=50
+          sudo docker compose -f /home/ec2-user/projeto-integrador-back/docker-compose.yml logs api --tail=50
           exit 1
           EOF
