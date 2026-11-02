@@ -1,10 +1,15 @@
-﻿namespace ProjetoIntegradorBack.Domain.Enums
+﻿namespace ProjetoIntegradorBack.Domain.Enums;
+
+public enum UserType
 {
-    public enum UserType
-    {
-        User = 1,
-        Barber = 2,
-        BarberShopOwner = 3,
-        Administrator = 4
-    }
+    Cliente = 1,
+    Barbearia = 3,
+    Barbeiro = 2,
+    Admin = 4,
+
+    // Aliases mantidos para compatibilidade com o código legado.
+    User = Cliente,
+    Barber = Barbeiro,
+    BarberShopOwner = Barbearia,
+    Administrator = Admin
 }

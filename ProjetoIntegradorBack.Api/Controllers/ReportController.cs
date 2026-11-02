@@ -1,0 +1,4 @@
+using ProjetoIntegradorBack.Api.Queries; using Microsoft.AspNetCore.Mvc; using Microsoft.AspNetCore.Authorization; using Prime.Architecture.Mediator.Standard;
+namespace ProjetoIntegradorBack.Api.Controllers;
+[ApiController,Authorize(Policy = "Barbearia"),Route("api/v1/reports")]
+public class ReportController(Mediator medaytor):ControllerBase{[HttpGet("commissions")]public async Task<IActionResult> Commissions(Guid establishmentId,int month,int year,Guid? employeeId,CancellationToken c=default)=>Ok(await medaytor.Send(new RelatorioComissaoQuery(establishmentId,month,year,employeeId),c));[HttpGet("appointments")]public async Task<IActionResult> Atendimentos(Guid establishmentId,DateTime start,DateTime end,CancellationToken c=default)=>Ok(await medaytor.Send(new RelatorioAtendimentosQuery(establishmentId,start,end),c));}

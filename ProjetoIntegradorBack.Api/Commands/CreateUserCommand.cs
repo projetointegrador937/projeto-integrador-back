@@ -1,9 +1,11 @@
 ﻿using ProjetoIntegradorBack.Domain.Enums;
+using Prime.Architecture.Mediator.Standard.Requests;
+using ProjetoIntegradorBack.Shared.Pattern;
 using System.ComponentModel.DataAnnotations;
 
 namespace ProjetoIntegradorBack.Api.Commands
 {
-    public class CreateUserCommand
+    public class CreateUserCommand : IRequest<Result<string>>
     {
         [Required]
         [StringLength(255, ErrorMessage = "E-mail must have between 8 in 255 characters", MinimumLength = 6)]

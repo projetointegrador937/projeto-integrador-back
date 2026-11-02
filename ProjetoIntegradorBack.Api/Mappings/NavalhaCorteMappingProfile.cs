@@ -1,5 +1,6 @@
 using ProjetoIntegradorBack.Domain.DTOs;
 using ProjetoIntegradorBack.Domain.Entities;
+using DomainService = ProjetoIntegradorBack.Domain.Entities.Service;
 using ProjetoIntegradorBack.Domain.ValueObjects;
 using Prime.Architecture.Mapper.Configuration;
 namespace ProjetoIntegradorBack.Api.Mappings;
@@ -7,10 +8,10 @@ public class NavalhaCorteMappingProfile : MappingProfile
 {
     public NavalhaCorteMappingProfile()
     {
-        CreateMap<Endereco, EnderecoDto>(); CreateMap<EnderecoDto, Endereco>();
-        CreateMap<Estabelecimento, EstabelecimentoDto>(); CreateMap<Estabelecimento, EstabelecimentoDetalheDto>();
-        CreateMap<Funcionario, FuncionarioDto>(); CreateMap<Servico, ServicoDto>();
-        CreateMap<Agendamento, AgendamentoDto>(); CreateMap<Contato, ContatoDto>();
-        CreateMap<ClientUser, UsuarioDto>().ForMember(d => d.Nome, o => o.MapFrom(s => s.Name)).ForMember(d => d.Tipo, o => o.MapFrom(s => s.UserType));
+        CreateMap<Address, AddressDto>(); CreateMap<AddressDto, Address>();
+        CreateMap<Establishment, EstablishmentDto>(); CreateMap<Establishment, EstablishmentDetailsDto>();
+        CreateMap<Employee, EmployeeDto>(); CreateMap<DomainService, ServiceDto>();
+        CreateMap<Appointment, AppointmentDto>(); CreateMap<Contact, ContactDto>();
+                CreateMap<ClientUser, UserDto>().ForMember(d => d.Name, o => o.MapFrom(s => s.Name)).ForMember(d => d.Type, o => o.MapFrom(s => s.UserType));
     }
 }

@@ -1,6 +1,6 @@
 namespace ProjetoIntegradorBack.Domain.Enums
 {
-    public enum StatusContato
+    public enum StatusContact
     {
         Aberto = 0,
         EmAndamento = 1,

@@ -1,6 +1,6 @@
 namespace ProjetoIntegradorBack.Domain.Enums
 {
-    public enum StatusAgendamento
+    public enum StatusAppointment
     {
         Pendente = 0,
         Confirmado = 1,

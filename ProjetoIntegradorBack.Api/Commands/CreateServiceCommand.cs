@@ -1,10 +1,11 @@
-﻿namespace ProjetoIntegradorBack.Api.Commands
-{
-    public class CreateServiceCommand
-    {
-        //public Guid BarberShopId { get; set; }
-        public string Name { get; set; }        
-        public int Duration { get; set; }
-        public decimal Price { get; set; }
-    }
-}
+using ProjetoIntegradorBack.Domain.DTOs;
+using Prime.Architecture.Mediator.Standard.Requests;
+
+namespace ProjetoIntegradorBack.Api.Commands;
+
+public record CreateServiceCommand(
+    Guid EstablishmentId,
+    string Name,
+    string? Description,
+    int DurationMinutes,
+    decimal Price) : IRequest<ServiceDto>;

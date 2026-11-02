@@ -1,93 +1,12 @@
-﻿using ProjetoIntegradorBack.Api.Commands;
-using ProjetoIntegradorBack.Api.Handlers;
-using ProjetoIntegradorBack.Domain.Entities;
-using ProjetoIntegradorBack.Domain.Interfaces;
-using Microsoft.AspNetCore.Mvc;
-
-namespace ProjetoIntegradorBack.Api.Controllers
+using ProjetoIntegradorBack.Api.Commands; using ProjetoIntegradorBack.Api.Queries; using ProjetoIntegradorBack.Domain.Enums; using Microsoft.AspNetCore.Mvc; using Microsoft.AspNetCore.Authorization; using Prime.Architecture.Mediator.Standard;
+namespace ProjetoIntegradorBack.Api.Controllers;
+[ApiController, Authorize, Route("api/v1/appointments")]
+public class AppointmentController(Mediator medaytor) : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AppointmentController : ControllerBase
-    {
-        private readonly IAppointmentRepository _repository;
-        private readonly IBarberShopService _barberShopService;
-        private readonly AppointmentHandler _appointmentHandler;
-        private readonly IAppointmentRepository _appointmentRepository;
-        public AppointmentController(
-            IAppointmentRepository repository, 
-            IBarberShopService barberShopService, 
-            AppointmentHandler appointmentHandler, 
-            IAppointmentRepository appointmentRepository)
-        {
-            _repository = repository;
-            _barberShopService = barberShopService;
-            _appointmentHandler = appointmentHandler;
-            _appointmentRepository = appointmentRepository;
-        }
-
-        [HttpGet("get-barbers-schedule")]
-        public async Task<IActionResult> GetBarberSchedule(
-            [FromQuery] Guid barberShopId, 
-            [FromQuery] Guid barberId, 
-            [FromQuery] Guid serviceId, 
-            [FromQuery] DateOnly date)
-        {
-            try
-            {
-                var result = await _barberShopService.GetBarberAvailableTimesAsync(barberShopId, barberId, serviceId,date);
-
-                if (result.IsSuccess)
-                    return Ok(result.Success);
-
-                Console.WriteLine($"Failed to retrieve barber's schedule: {result.Failure}");
-                return BadRequest(result.Failure);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred while retrieving the barber's schedule: {ex.Message}");
-            }
-        }
-
-        [HttpPost("create-appointment")]
-        public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentCommand command)
-        {
-            try
-            {
-               var result = await _appointmentHandler.HandleCreateAppointmentAsync(command);
-
-                if (result.IsSuccess)
-                    return Ok(result.Success);
-
-                Console.WriteLine($"Failed to create appointment: {result.Failure}");
-                return BadRequest(result.Failure);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred while creating the appointment: {ex.Message}");
-            }
-        }
-
-        [HttpGet("get-appointments-barber")]
-        public async Task<IActionResult> GetAppointmentsByBarberIdAsync(
-            [FromQuery] Guid barberShopId,
-            [FromQuery] Guid barberId,
-            [FromQuery] DateOnly date)
-        {
-            try
-            {
-                var result = await _appointmentRepository.GetAppointmentsByBarberIdAsync(barberShopId,barberId, date);
-
-                if (result.IsSuccess)
-                    return Ok(result.Success);
-
-                Console.WriteLine($"Failed to retrieve appointments: {result.Failure}");
-                return BadRequest(result.Failure);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred while retrieving appointments: {ex.Message}");
-            }
-        }
-    }
+ [Authorize(Policy = "Cliente")][HttpGet("mine")] public async Task<IActionResult> Meus(Guid clienteId,StatusAppointment? status,int page=1,CancellationToken ct=default)=>Ok(await medaytor.Send(new MeusAppointmentsQuery(clienteId,status,page,20),ct));
+ [Authorize(Policy = "BarbeiroOuBarbearia")][HttpGet("schedule")] public async Task<IActionResult> Agenda(Guid employeeId,int month,int year,CancellationToken ct=default)=>Ok(await medaytor.Send(new AgendaMensalQuery(employeeId,month,year),ct));
+ [Authorize(Policy = "BarbeiroOuBarbearia")][HttpGet("schedule/{day}")] public async Task<IActionResult> Date(DateOnly day,Guid employeeId,CancellationToken ct=default)=>Ok(await medaytor.Send(new AgendaDateQuery(employeeId,day),ct));
+ [Authorize(Policy = "Cliente")][HttpPost] public async Task<IActionResult> Criar(CreateAppointmentCommand c,CancellationToken ct=default)=>Ok(await medaytor.Send(c,ct));
+ [Authorize(Policy = "Cliente")][HttpPut("{id:guid}/reschedule")] public async Task<IActionResult> Remarcar(Guid id,DateTime novaDateTime,CancellationToken ct=default)=>Ok(await medaytor.Send(new RescheduleAppointmentCommand(id,novaDateTime),ct));
+ [Authorize(Policy = "Cliente")][HttpPatch("{id:guid}/cancel")] public async Task<IActionResult> Cancelar(Guid id,CancellationToken ct=default)=>Ok(await medaytor.Send(new CancelAppointmentCommand(id),ct));
 }

@@ -6,11 +6,14 @@ namespace ProjetoIntegradorBack.Domain.Entities
 {
     public class ClientUser : User
     {
+        public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+        public AddressUser? Address { get; set; }
         private static readonly UserType[] AllowedUserTypes =
         {
-            UserType.User,
-            UserType.Barber,
-            UserType.BarberShopOwner
+            UserType.Cliente,
+            UserType.Barbeiro,
+            UserType.Barbearia,
+            UserType.Admin
         };
         public static Result<ClientUser> CreateUser(
             string email,
@@ -18,7 +21,7 @@ namespace ProjetoIntegradorBack.Domain.Entities
             string profilePictureUrl,
             string name)
         {
-            return Create(email, password, profilePictureUrl, name, UserType.User);
+            return Create(email, password, profilePictureUrl, name, UserType.Cliente);
         }
 
 
@@ -28,7 +31,7 @@ namespace ProjetoIntegradorBack.Domain.Entities
             string profilePictureUrl,
             string name)
         {
-            return Create(email, password, profilePictureUrl, name, UserType.Barber);
+            return Create(email, password, profilePictureUrl, name, UserType.Barbeiro);
         }
 
         public static Result<ClientUser> CreateBarberShopOwner(
@@ -37,7 +40,16 @@ namespace ProjetoIntegradorBack.Domain.Entities
            string profilePictureUrl,
            string name)
         {
-            return Create(email, password, profilePictureUrl, name, UserType.BarberShopOwner);
+            return Create(email, password, profilePictureUrl, name, UserType.Barbearia);
+        }
+
+        public static Result<ClientUser> CreateAdmin(
+            string email,
+            string password,
+            string profilePictureUrl,
+            string name)
+        {
+            return Create(email, password, profilePictureUrl, name, UserType.Admin);
         }
 
         public static Result<ClientUser> Create(
@@ -53,7 +65,7 @@ namespace ProjetoIntegradorBack.Domain.Entities
             if (failure != null)
                 return Result<ClientUser>.AsFailure(failure);
 
-            if (!AllowedUserTypes.Contains(userType))
+            if (!User.IsValidType(userType) || !AllowedUserTypes.Contains(userType))
                 return Result<ClientUser>.AsFailure(
                     new Failure(400, "Invalid UserType"));
 

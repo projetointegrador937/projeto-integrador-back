@@ -1,0 +1,15 @@
+using ProjetoIntegradorBack.Domain.Entities;
+using ProjetoIntegradorBack.Domain.Interfaces;
+using ProjetoIntegradorBack.Infrastructure.Context;
+using ProjetoIntegradorBack.Shared.Pattern;
+using Microsoft.EntityFrameworkCore;
+namespace ProjetoIntegradorBack.Infrastructure.Repositories;
+public class EstablishmentRepository(ProjetoIntegradorBackDbContext context) : IEstablishmentRepository
+{
+    public async Task<Result<Establishment>> GetPorIdAsync(Guid id, CancellationToken ct=default){try{var e=await context.Establishments.Include(x=>x.Employees).Include(x=>x.Services).FirstOrDefaultAsync(x=>x.Id==id,ct);return e==null?Result<Establishment>.AsFailure(new Failure(404,"Establishment não encontrado.")):Result<Establishment>.AsSuccess(e);}catch(Exception ex){return Result<Establishment>.AsFailure(new Failure(500,ex.Message));}}
+    public async Task<Result<IReadOnlyList<Establishment>>> ListAsync(string? busca,string? cidade,int page,int size,CancellationToken ct=default){try{var q=context.Establishments.Where(x=>x.IsActive);if(!string.IsNullOrWhiteSpace(busca))q=q.Where(x=>x.TradeName.Contains(busca)||x.LegalName.Contains(busca));if(!string.IsNullOrWhiteSpace(cidade))q=q.Where(x=>x.Address.City==cidade);return Result<IReadOnlyList<Establishment>>.AsSuccess(await q.Skip((page-1)*size).Take(size).ToListAsync(ct));}catch(Exception ex){return Result<IReadOnlyList<Establishment>>.AsFailure(new Failure(500,ex.Message));}}
+    public async Task<Result<int>> ContarAsync(string? busca,string? cidade,CancellationToken ct=default){try{var q=context.Establishments.Where(x=>x.IsActive);if(!string.IsNullOrWhiteSpace(busca))q=q.Where(x=>x.TradeName.Contains(busca)||x.LegalName.Contains(busca));if(!string.IsNullOrWhiteSpace(cidade))q=q.Where(x=>x.Address.City==cidade);return Result<int>.AsSuccess(await q.CountAsync(ct));}catch(Exception ex){return Result<int>.AsFailure(new Failure(500,ex.Message));}}
+    public async Task<Result<Establishment>> AddAsync(Establishment e,CancellationToken ct=default){try{e.Id=Guid.NewGuid();e.CreatedAt=DateTime.UtcNow;await context.Establishments.AddAsync(e,ct);await context.SaveChangesAsync(ct);return Result<Establishment>.AsSuccess(e);}catch(Exception ex){return Result<Establishment>.AsFailure(new Failure(500,ex.Message));}}
+    public async Task<Result<Establishment>> UpdateAsync(Establishment e,CancellationToken ct=default){try{e.UpdatedAt=DateTime.UtcNow;context.Establishments.Update(e);await context.SaveChangesAsync(ct);return Result<Establishment>.AsSuccess(e);}catch(Exception ex){return Result<Establishment>.AsFailure(new Failure(500,ex.Message));}}
+    public async Task<Result<string>> DesativarAsync(Guid id,CancellationToken ct=default){try{var e=await context.Establishments.FindAsync(new object[]{id},ct);if(e==null)return Result<string>.AsFailure(new Failure(404,"Establishment não encontrado."));e.IsActive=false;e.UpdatedAt=DateTime.UtcNow;await context.SaveChangesAsync(ct);return Result<string>.AsSuccess("Establishment desativado com sucesso.");}catch(Exception ex){return Result<string>.AsFailure(new Failure(500,ex.Message));}}
+}

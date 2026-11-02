@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjetoIntegradorBack.Api",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjetoIntegradorBack.Domain", "..\ProjetoIntegradorBack.Domain\ProjetoIntegradorBack.Domain.csproj", "{57F2A96E-293F-432E-4351-C2C8AC0774B2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjetoIntegradorBack.Infrastructure", "..\ProjetoIntegradorBack.Repository\ProjetoIntegradorBack.Infrastructure.csproj", "{08DA409D-CD3E-584C-7C4D-558B621F989F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjetoIntegradorBack.Infrastructure", "..\ProjetoIntegradorBack.Infrastructure\ProjetoIntegradorBack.Infrastructure.csproj", "{08DA409D-CD3E-584C-7C4D-558B621F989F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjetoIntegradorBack.Shared", "..\ProjetoIntegradorBack.Shared\ProjetoIntegradorBack.Shared.csproj", "{87FA21E6-5C01-7E39-8176-45B0F6C746E5}"
 EndProject

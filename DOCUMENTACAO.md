@@ -1,867 +1,917 @@
-# Navalha & Corte — Documentação Técnica Completa
+# Navalha & Corte — Documentação do Back-end
 
-> **Projeto Integrador — UNIVESP**
-> Plataforma web para busca, agendamento e gestão de serviços de barbearias e salões.
-
----
+> Projeto Integrador — UNIVESP
+> API REST para autenticação, estabelecimentos, profissionais, serviços, contatos, agenda e relatórios.
 
 ## Sumário
 
-1. [Visão Geral do Produto](#1-visão-geral-do-produto)
-2. [Requisitos Funcionais](#2-requisitos-funcionais)
-3. [Requisitos Não Funcionais](#3-requisitos-não-funcionais)
-4. [Interfaces do Front-end](#4-interfaces-do-front-end)
-5. [Stack de Tecnologias](#5-stack-de-tecnologias)
-6. [Arquitetura do Back-end (.NET)](#6-arquitetura-do-back-end-net)
-7. [Modelo de Dados — Entidades](#7-modelo-de-dados--entidades)
-8. [Rotas da API REST](#8-rotas-da-api-rest)
-9. [Segurança](#9-segurança)
-10. [Padrões de Arquitetura e Boas Práticas](#10-padrões-de-arquitetura-e-boas-práticas)
-11. [Diagrama de Arquitetura](#11-diagrama-de-arquitetura)
-12. [Diagrama de Entidade-Relacionamento](#12-diagrama-de-entidade-relacionamento)
-13. [Fluxo de Autenticação](#13-fluxo-de-autenticação)
+1. [Visão geral](#1-visão-geral)
+2. [Status da implementação](#2-status-da-implementação)
+3. [Tecnologias](#3-tecnologias)
+4. [Estrutura da solução](#4-estrutura-da-solução)
+5. [Arquitetura](#5-arquitetura)
+6. [Configuração local](#6-configuração-local)
+7. [Docker Compose](#7-docker-compose)
+8. [Variáveis de ambiente](#8-variáveis-de-ambiente)
+9. [Execução e migrações](#9-execução-e-migrações)
+10. [Autenticação e segurança](#10-autenticação-e-segurança)
+11. [Mediator, CQRS e handlers](#11-mediator-cqrs-e-handlers)
+12. [Endpoints implementados](#12-endpoints-implementados)
+13. [Persistência e repositórios](#13-persistência-e-repositórios)
+14. [DTOs e contratos de retorno](#14-dtos-e-contratos-de-retorno)
+15. [Modelo de domínio](#15-modelo-de-domínio)
+16. [Documentação da API](#16-documentação-da-api)
+17. [Limitações e próximos passos](#17-limitações-e-próximos-passos)
 
 ---
 
-## 1. Visão Geral do Produto
+## 1. Visão geral
 
-**Navalha & Corte** é uma plataforma web desenvolvida como Projeto Integrador da UNIVESP. Tem como objetivo conectar clientes a barbearias e salões de beleza, oferecendo:
+O backend do Navalha & Corte é uma aplicação ASP.NET Core Web API responsável por centralizar o cadastro e a operação de estabelecimentos, profissionais, serviços e agendamentos.
 
-- **Busca geolocalizada** de estabelecimentos por serviço, nome ou região.
-- **Agendamento online** de horários com profissionais específicos.
-- **Gestão operacional** para estabelecimentos parceiros (agenda, funcionários, comissões, lembretes via WhatsApp).
-- **Três perfis de usuário**: Visitante, Cliente e Funcionário/Empresa.
+A aplicação utiliza .NET 9, PostgreSQL, Entity Framework Core, JWT Bearer, BCrypt, FluentValidation, Docker Compose e o pacote `Prime.Architecture` para Mediator, mapeamento e contratos de requisição.
 
----
+A API possui dois grupos de funcionalidades:
 
-## 2. Requisitos Funcionais
+- **Fluxos principais versionados**, expostos em `/api/v1`, com comandos e queries integrados ao Mediator.
+- **Fluxos legados**, mantidos em `/api/user`, `/api/barbershop` e `/api/Appointment`, também migrados para despacho via Mediator nos comandos de escrita.
 
-### 2.1 Autenticação e Conta
-
-| ID    | Requisito |
-|-------|-----------|
-| RF-01 | O sistema deve permitir cadastro de novos usuários com e-mail e senha. |
-| RF-02 | O sistema deve permitir login com e-mail e senha. |
-| RF-03 | O sistema deve suportar dois tipos de conta: **Cliente** e **Empresa**. |
-| RF-04 | O sistema deve permitir a recuperação de senha via e-mail. |
-| RF-05 | O sistema deve permitir que o usuário visualize e edite seu perfil. |
-
-### 2.2 Busca de Estabelecimentos
-
-| ID    | Requisito |
-|-------|-----------|
-| RF-06 | O sistema deve permitir busca de barbearias por nome, endereço ou região. |
-| RF-07 | O sistema deve exibir os resultados em um mapa integrado (Google Maps). |
-| RF-08 | O sistema deve permitir busca combinada por serviço e localização na página inicial. |
-| RF-09 | O sistema deve exibir informações do estabelecimento: nome, endereço, horário de funcionamento e descrição. |
-
-### 2.3 Agendamento (Cliente)
-
-| ID    | Requisito |
-|-------|-----------|
-| RF-10 | O cliente autenticado deve conseguir visualizar seus agendamentos futuros. |
-| RF-11 | O cliente deve poder remarcar um agendamento existente. |
-| RF-12 | O cliente deve poder cancelar uma reserva. |
-| RF-13 | O sistema deve exibir o histórico completo de atendimentos do cliente. |
-| RF-14 | O sistema deve enviar lembrete de agendamento via WhatsApp. |
-| RF-15 | O sistema deve oferecer a opção de adicionar o agendamento ao calendário pessoal. |
-
-### 2.4 Agenda do Funcionário / Empresa
-
-| ID    | Requisito |
-|-------|-----------|
-| RF-16 | O funcionário autenticado deve visualizar sua agenda em formato de calendário mensal. |
-| RF-17 | O funcionário deve conseguir ver os detalhes dos atendimentos de um dia selecionado (cliente, serviço, horário, status). |
-| RF-18 | A empresa deve poder cadastrar, editar e desativar funcionários. |
-| RF-19 | A empresa deve poder gerenciar os dados cadastrais do estabelecimento (CNPJ, endereço, horário, descrição). |
-| RF-20 | O sistema deve calcular comissões por profissional automaticamente. |
-| RF-21 | O sistema deve gerar relatórios de desempenho da equipe. |
-
-### 2.5 Parceiros / Estabelecimentos
-
-| ID    | Requisito |
-|-------|-----------|
-| RF-22 | O sistema deve oferecer uma página de apresentação dos benefícios para estabelecimentos parceiros. |
-| RF-23 | Um estabelecimento deve poder se cadastrar na plataforma como parceiro. |
-| RF-24 | O sistema deve exibir os estabelecimentos parceiros na vitrine regional. |
-
-### 2.6 Contato
-
-| ID    | Requisito |
-|-------|-----------|
-| RF-25 | O sistema deve disponibilizar um formulário de contato com campos: assunto, nome, sobrenome, e-mail, número de reserva (opcional) e descrição. |
-| RF-26 | O sistema deve confirmar o recebimento do contato ao usuário. |
+> Esta documentação descreve o código existente no repositório. Requisitos de produto ainda não implementados estão listados na seção [Limitações e próximos passos](#16-limitações-e-próximos-passos).
 
 ---
 
-## 3. Requisitos Não Funcionais
+## 2. Status da implementação
 
-### 3.1 Desempenho
+### Implementado
 
-| ID     | Requisito |
-|--------|-----------|
-| RNF-01 | As respostas da API devem ter tempo de resposta inferior a **300ms** para 95% das requisições em condições normais de carga. |
-| RNF-02 | O front-end deve atingir pontuação **≥ 90 no Lighthouse** (Performance, Acessibilidade, SEO). |
-| RNF-03 | O sistema deve suportar ao menos **500 requisições simultâneas** sem degradação perceptível. |
+- Cadastro e login de usuários.
+- Geração de access token JWT e refresh token.
+- Revogação de refresh token.
+- Cadastro e consulta de estabelecimentos.
+- Cadastro e consulta de funcionários e serviços.
+- Criação, consulta, remarcação, cancelamento e alteração de status de agendamentos.
+- Consulta de agenda diária e mensal.
+- Consulta de horários disponíveis.
+- Envio e listagem de contatos.
+- Alteração do status de contatos.
+- Relatórios de comissões e atendimentos.
+- Mediator para commands e queries.
+- Persistência via Entity Framework Core e PostgreSQL.
+- Execução local ou via Docker Compose.
+- Swagger/OpenAPI em ambiente de desenvolvimento e referência Scalar.
 
-### 3.2 Segurança
+### Ainda não evidenciado no código atual
 
-| ID     | Requisito |
-|--------|-----------|
-| RNF-04 | Toda comunicação deve ocorrer exclusivamente via **HTTPS/TLS 1.2+**. |
-| RNF-05 | Senhas devem ser armazenadas com hash **BCrypt** (fator de custo ≥ 12). |
-| RNF-06 | A autenticação deve utilizar **JWT** com expiração de 60 minutos e refresh token rotativo. |
-| RNF-07 | A API deve implementar **rate limiting** para prevenir ataques de força bruta (máx. 10 tentativas de login por IP/minuto). |
-| RNF-08 | Dados sensíveis (CNPJ, e-mail, telefone) devem ser protegidos contra exposição em logs. |
-| RNF-09 | A API deve validar e sanitizar todas as entradas para prevenir injeção SQL e XSS. |
-| RNF-10 | O sistema deve implementar **CORS** restrito às origens do front-end. |
-
-### 3.3 Disponibilidade e Confiabilidade
-
-| ID     | Requisito |
-|--------|-----------|
-| RNF-11 | O sistema deve ter disponibilidade mínima de **99,5%** (SLA mensal). |
-| RNF-12 | O banco de dados deve ter backups automáticos diários com retenção de 30 dias. |
-
-### 3.4 Usabilidade e Acessibilidade
-
-| ID     | Requisito |
-|--------|-----------|
-| RNF-13 | A interface deve ser **responsiva** para dispositivos móveis, tablets e desktops. |
-| RNF-14 | Os componentes devem seguir as diretrizes **WCAG 2.1 nível AA** (contraste, atributos ARIA, navegação por teclado). |
-| RNF-15 | O sistema deve suportar os browsers Chrome, Firefox, Edge e Safari nas duas versões mais recentes. |
-
-### 3.5 Manutenibilidade
-
-| ID     | Requisito |
-|--------|-----------|
-| RNF-16 | O código back-end deve ter cobertura de testes unitários e de integração **≥ 80%**. |
-| RNF-17 | A API deve ser versionada (`/api/v1/...`) para permitir evolução sem quebra de contratos. |
-| RNF-18 | O projeto deve conter documentação de API gerada automaticamente via **Swagger / OpenAPI 3.0**. |
+- Integração efetiva com WhatsApp.
+- Recuperação de senha por e-mail.
+- Rate limiting configurado.
+- CORS restrito a origens específicas.
+- Redis.
+- Serviço de envio de e-mails.
+- Pipeline de CI/CD.
+- Testes automatizados no repositório.
+- Aplicação automática de migrations durante o startup.
 
 ---
 
-## 4. Interfaces do Front-end
+## 3. Tecnologias
 
-### 4.1 Rotas e Componentes
+| Tecnologia | Versão/configuração | Uso |
+|---|---:|---|
+| .NET / ASP.NET Core | 9.0 | Runtime e Web API |
+| C# | — | Linguagem principal |
+| PostgreSQL | 16 Alpine no Docker | Banco relacional |
+| Entity Framework Core | 9.0.1 | ORM e migrations |
+| JWT Bearer | 9.0.9 | Autenticação |
+| BCrypt.Net-Next | 4.0.3 | Hash de senhas |
+| FluentValidation | 12.1.1 | Validação |
+| Prime.Architecture | 2.0.0 | Mediator, requests e mapper |
+| Swashbuckle | 10.1.7 | Swagger/OpenAPI |
+| Scalar.AspNetCore | 2.18.0 | Referência visual da API |
+| Docker / Compose | — | Containerização |
 
-| Rota | Componente | Descrição |
-|------|------------|-----------|
-| `/` | `Home` | Página inicial com hero section, busca rápida por serviço/localização e seção "Como Funciona". |
-| `/login` | `Login` | Login e cadastro de usuário (modo alternável: entrar / criar conta). |
-| `/pesquisar` | `Pesquisa` | Busca de barbearias com mapa embarcado (Google Maps Embed). |
-| `/agendamentos` | `Agendamentos` | Visualização de agendamentos por perfil: visitante (CTA de login), cliente (próximos + histórico), funcionário (calendário mensal + lista de atendimentos do dia). |
-| `/perfil` | `Perfil` | Gerenciamento de conta: modo Cliente (endereço) e modo Empresa (dados cadastrais + gestão de funcionários). |
-| `/parceiros` | `Parceiros` | Landing page institucional para atração de estabelecimentos parceiros. |
-| `/contato` | `Contato` | Formulário de suporte/contato. |
-| `/sobre-nos` | `SobreNos` | Página institucional com missão, contexto acadêmico (UNIVESP) e propósito do produto. |
+Projetos da solução:
 
-### 4.2 Componentes Globais
+- `ProjetoIntegradorBack.Api`
+- `ProjetoIntegradorBack.Domain`
+- `ProjetoIntegradorBack.Infrastructure`
+- `ProjetoIntegradorBack.Service`
+- `ProjetoIntegradorBack.Shared`
 
-| Componente | Descrição |
-|------------|-----------|
-| `Header` | Barra de navegação com logo, links principais (Home, Pesquisar, Parceiros, Agendamentos), botão de Login e ícone de perfil. Responsivo com menu hambúrguer em mobile. |
-| `Footer` | Rodapé com links para Contato e Sobre Nós. |
+---
 
-### 4.3 Tipos de Usuário e Visões
+## 4. Estrutura da solução
 
-```
-Visitante  → Pode navegar, pesquisar e ver a home. Agendamentos exige login.
-Cliente    → Visualiza agendamentos futuros, histórico, pode remarcar/cancelar.
-Funcionário → Visualiza agenda em calendário, detalhes de atendimentos do dia.
-Empresa    → Gerencia dados cadastrais, funcionários e relatórios.
+```text
+projeto-integrador-back/
+├── ProjetoIntegradorBack.Api/
+│   ├── Commands/             # Commands enviados ao Mediator
+│   ├── Controllers/          # Endpoints HTTP
+│   ├── Handlers/             # IRequestHandler e handlers legados
+│   ├── Mappings/             # Profiles do mapper
+│   ├── Middlewares/          # Middlewares da API
+│   ├── Queries/              # Queries enviadas ao Mediator
+│   ├── Services/             # JWT e serviços de aplicação
+│   ├── Validator/             # Validadores
+│   ├── Program.cs
+│   └── appsettings*.json
+├── ProjetoIntegradorBack.Domain/
+│   ├── DTOs/
+│   ├── Entities/
+│   ├── Enums/
+│   ├── Interfaces/
+│   └── ValueObjects/
+├── ProjetoIntegradorBack.Infrastructure/
+│   ├── Context/
+│   ├── Migrations/
+│   └── Repositories/
+├── ProjetoIntegradorBack.Service/
+│   └── Services/
+├── ProjetoIntegradorBack.Shared/
+│   └── Pattern/               # Result e Failure
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+└── DOCUMENTACAO.md
 ```
 
 ---
 
-## 5. Stack de Tecnologias
+## 5. Arquitetura
 
-### Front-end
+A solução segue uma separação em camadas:
 
-| Tecnologia | Versão | Função |
-|------------|--------|--------|
-| React | 19.x | Biblioteca de UI |
-| TypeScript | 6.x | Tipagem estática |
-| React Router DOM | 7.x | Roteamento SPA |
-| Vite | 8.x | Build tool e dev server |
-| CSS Modules (por componente) | — | Estilização isolada |
-| Google Maps Embed API | — | Mapa de busca |
+```text
+HTTP Request
+    ↓
+Controller
+    ↓
+Mediator.Send(command/query)
+    ↓
+IRequestHandler
+    ↓
+Service / Repository
+    ↓
+Entity Framework Core
+    ↓
+PostgreSQL
+```
 
-### Back-end (proposto — .NET)
+### API
 
-| Tecnologia | Versão | Função |
-|------------|--------|--------|
-| .NET | 8.0 (LTS) | Runtime e framework base |
-| ASP.NET Core Web API | 8.0 | Exposição de endpoints REST |
-| Entity Framework Core | 8.x | ORM para acesso a dados |
-| ASP.NET Core Identity | 8.x | Gerenciamento de usuários e papéis |
-| JWT Bearer Authentication | 8.x | Autenticação stateless |
-| FluentValidation | 11.x | Validação de dados de entrada |
-| AutoMapper | 13.x | Mapeamento DTO ↔ Entidade |
-| Serilog | 4.x | Logging estruturado |
-| Swashbuckle (Swagger) | 6.x | Documentação OpenAPI |
+Responsável por controllers, requests, handlers, validações, mapeamento, autenticação e configuração da aplicação.
 
-### Banco de Dados
+### Domain
 
-| Tecnologia | Função |
-|------------|--------|
-| PostgreSQL 16 | Banco relacional principal |
-| Redis | Cache de sessão e rate limiting |
+Contém entidades, DTOs, enums, value objects e interfaces dos repositórios e serviços.
 
-### Infraestrutura / DevOps
+### Repository
 
-| Tecnologia | Função |
-|------------|--------|
-| Docker / Docker Compose | Containerização dos serviços |
-| GitHub Actions | CI/CD |
-| Nginx | Reverse proxy e servir front-end estático |
+Implementa o `DbContext`, migrations e os repositórios concretos para acesso ao PostgreSQL.
+
+### Service
+
+Concentra regras de serviço, incluindo disponibilidade de profissionais e horários.
+
+### Shared
+
+Contém tipos compartilhados, especialmente `Result<T>` e `Failure`, usados para transportar sucesso ou falha entre as camadas.
+
+### Inicialização
+
+O registro atual em `Program.cs` inclui:
+
+- Controllers.
+- Autenticação JWT e autorização.
+- `DbContext` com PostgreSQL.
+- Repositórios como serviços scoped.
+- Serviços de domínio/aplicação.
+- Validators via `AddValidatorsFromAssemblyContaining<Program>()`.
+- Mediator via `AddMediatorStandard(typeof(Program).Assembly)`.
+- Mapper via `MapperConfiguration`.
+- Swagger e Scalar em desenvolvimento.
 
 ---
 
-## 6. Arquitetura do Back-end (.NET)
+## 6. Configuração local
 
-O back-end segue a **Clean Architecture** combinada com o padrão **CQRS** (via MediatR) para separar responsabilidades e facilitar testes.
+### Pré-requisitos
 
-### 6.1 Estrutura de Projetos (Solution)
+- .NET SDK 9.
+- PostgreSQL 16 ou Docker.
+- Docker Compose, caso use a infraestrutura conteinerizada.
+- Uma chave JWT segura.
 
-```
-NavalhaCorte.sln
-├── src/
-│   ├── NavalhaCorte.Domain/          # Entidades, interfaces, enumeradores, exceções de domínio
-│   ├── NavalhaCorte.Application/     # Use cases (Commands/Queries), DTOs, Validators, Interfaces
-│   ├── NavalhaCorte.Infrastructure/  # EF Core, repositórios, serviços externos (WhatsApp, Maps)
-│   └── NavalhaCorte.API/             # Controllers, Middlewares, configuração de DI, Program.cs
-└── tests/
-    ├── NavalhaCorte.UnitTests/
-    └── NavalhaCorte.IntegrationTests/
+### Restaurar e compilar
+
+```bash
+dotnet restore ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
+dotnet build ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
 ```
 
-### 6.2 Camadas
+### Configurar variáveis
 
+Para execução local, defina as variáveis no shell ou crie um `.env` na raiz. O `.env` não deve ser versionado.
+
+Exemplo mínimo:
+
+```bash
+export DATABASE_CONNECTION_STRING="Host=localhost;Port=5432;Database=projeto_integrador;Username=projeto_integrador;Password=projeto_integrador_dev"
+export Jwt__Key="uma-chave-secreta-longa-com-pelo-menos-32-caracteres"
+export Jwt__Issuer="ProjetoIntegradorBack"
+export Jwt__Audience="ProjetoIntegradorBack.Client"
+export Jwt__AccessTokenMinutes="30"
 ```
-┌─────────────────────────────┐
-│         API Layer           │  Controllers, Middlewares, Filters, Swagger
-├─────────────────────────────┤
-│      Application Layer      │  Commands, Queries, Handlers (MediatR), DTOs, Validators
-├─────────────────────────────┤
-│       Domain Layer          │  Entities, Value Objects, Domain Events, Interfaces
-├─────────────────────────────┤
-│    Infrastructure Layer     │  EF Core DbContext, Repositories, External Services
-└─────────────────────────────┘
+
+Executar:
+
+```bash
+dotnet run --project ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
 ```
+
+A porta pode variar conforme o perfil de execução. No Docker, a API fica disponível em `http://localhost:8080`.
 
 ---
 
-## 7. Modelo de Dados — Entidades
+## 7. Docker Compose
 
-### 7.1 `Usuario` (Identity ApplicationUser)
+O `docker-compose.yml` cria dois serviços:
+
+### PostgreSQL
+
+- Imagem: `postgres:16-alpine`.
+- Container: `projeto-integrador-back-postgres`.
+- Volume persistente: `postgres_data`.
+- Porta publicada: `5432`.
+- Healthcheck com `pg_isready`.
+
+### API
+
+- Construída pelo `Dockerfile`.
+- Container: `projeto-integrador-back-api`.
+- Porta publicada: `8080`.
+- Aguarda o PostgreSQL ficar saudável.
+- Usa `http://+:8080` dentro do container.
+
+### Execução
+
+```bash
+cp .env.example .env
+# Edite .env e substitua senhas e a chave JWT
+docker compose up --build
+```
+
+Validar a configuração sem iniciar containers:
+
+```bash
+docker compose --env-file .env.example config
+```
+
+Parar os serviços:
+
+```bash
+docker compose down
+```
+
+Parar e remover também o volume do banco:
+
+```bash
+docker compose down -v
+```
+
+> O comando `down -v` apaga os dados persistidos do PostgreSQL.
+
+---
+
+## 8. Variáveis de ambiente
+
+O arquivo `.env.example` documenta as variáveis esperadas pelo Compose.
+
+| Variável | Obrigatória | Padrão | Descrição |
+|---|---|---|---|
+| `POSTGRES_DB` | Não | `projeto_integrador` | Nome do banco |
+| `POSTGRES_USER` | Não | `projeto_integrador` | Usuário do PostgreSQL |
+| `POSTGRES_PASSWORD` | Não | `projeto_integrador_dev` | Senha do PostgreSQL; altere em produção |
+| `ASPNETCORE_ENVIRONMENT` | Não | `Development` | Ambiente ASP.NET Core |
+| `ASPNETCORE_URLS` | Não | `http://+:8080` | Endereço de escuta da API no container |
+| `JWT_KEY` | Sim no Compose | — | Chave usada para assinar tokens JWT |
+| `JWT_ISSUER` | Não | `ProjetoIntegradorBack` | Emissor do token |
+| `JWT_AUDIENCE` | Não | `ProjetoIntegradorBack.Client` | Público do token |
+| `JWT_ACCESS_TOKEN_MINUTES` | Não | `30` | Duração do access token |
+
+O Compose converte as variáveis JWT para a convenção de configuração do .NET:
+
+```text
+JWT_KEY                    → Jwt:Key
+JWT_ISSUER                 → Jwt:Issuer
+JWT_AUDIENCE               → Jwt:Audience
+JWT_ACCESS_TOKEN_MINUTES  → Jwt:AccessTokenMinutes
+```
+
+A variável `DATABASE_CONNECTION_STRING` é montada automaticamente pelo Compose com host `postgres`, banco, usuário e senha configurados.
+
+Nunca versione `.env`, chaves JWT reais ou senhas reais.
+
+---
+
+## 9. Execução e migrações
+
+O contexto de dados está em `ProjetoIntegradorBack.Infrastructure/Context/BookTimeDbContext.cs`. As migrations estão em `ProjetoIntegradorBack.Infrastructure/Migrations`.
+
+Para listar migrations:
+
+```bash
+dotnet ef migrations list \
+  --project ProjetoIntegradorBack.Infrastructure/ProjetoIntegradorBack.Infrastructure.csproj \
+  --startup-project ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
+```
+
+Para aplicar migrations, com a connection string disponível:
+
+```bash
+dotnet ef database update \
+  --project ProjetoIntegradorBack.Infrastructure/ProjetoIntegradorBack.Infrastructure.csproj \
+  --startup-project ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
+```
+
+A migration inicial existente é `InitialCreate`.
+
+> A aplicação não executa `Database.Migrate()` automaticamente durante o startup. Em ambientes novos, aplique as migrations explicitamente antes de usar a API.
+
+---
+
+## 10. Autenticação, roles e segurança
+
+### Roles
+
+A aplicação possui quatro papéis de usuário:
+
+| Papel | Valor | Responsabilidade |
+|---|---:|---|
+| `Cliente` | `1` | Criar, consultar, remarcar e cancelar seus agendamentos. |
+| `Barbeiro` | `2` | Consultar a agenda e os agendamentos relacionados ao atendimento. |
+| `Barbearia` | `3` | Gerenciar estabelecimento, profissionais, serviços e relatórios. |
+| `Admin` | `4` | Papel administrativo reservado para operações de administração da plataforma. |
+
+Os nomes antigos (`User`, `Barber`, `BarberShopOwner` e `Administrator`) permanecem como aliases no enum para compatibilidade, mas os tokens JWT usam os nomes canônicos: `Cliente`, `Barbeiro`, `Barbearia` e `Admin`.
+
+O papel `Admin` não pode ser criado pelos endpoints públicos de cadastro. Sua criação deve ocorrer por seed, migration ou procedimento administrativo controlado.
+
+### Policies
+
+As policies são registradas no `Program.cs`:
+
+- `Cliente`
+- `Barbeiro`
+- `Barbearia`
+- `Admin`
+- `BarbeiroOuBarbearia`
+- `ClienteOuBarbeiroOuBarbeariaOuAdmin`
+
+Os controllers utilizam `[Authorize(Policy = "...")]`. Endpoints de consulta pública, como listagem de estabelecimentos e horários disponíveis, permanecem públicos quando não possuem `[Authorize]`.
+
+### Permissões aplicadas
+
+- Cadastro de cliente e proprietário: `[AllowAnonymous]`.
+- Criação de agendamento: `Cliente`.
+- Consulta dos próprios agendamentos: `Cliente`.
+- Remarcação e cancelamento: `Cliente`.
+- Agenda diária/mensal: `Barbeiro` ou `Barbearia`.
+- Cadastro de estabelecimento, serviços e barbeiros: `Barbearia`.
+- Agenda legada e agendamentos de barbeiro: `Barbeiro` ou `Barbearia`.
+- Relatórios: `Barbearia`.
+
+### JWT
+
+O login valida o e-mail e a senha, gera um access token e cria um refresh token com validade de sete dias. O access token contém informações do usuário e é assinado usando `Jwt:Key`.
+
+A validação do token verifica:
+
+- Assinatura.
+- Claim `ClaimTypes.Role`, preenchida com o `UserType` do usuário.
+
+- Emissor (`Jwt:Issuer`).
+- Audiência (`Jwt:Audience`).
+- Expiração.
+- `ClockSkew` igual a zero.
+
+### Senhas
+
+Os fluxos legados de criação de usuário utilizam BCrypt para armazenar a senha com hash. Senhas não devem ser persistidas em texto puro.
+
+### Refresh token
+
+O refresh token é persistido pela `IRefreshTokenRepository` e pode ser revogado pelo endpoint de logout.
+
+### Recomendações para produção
+
+- Usar uma `JWT_KEY` aleatória, longa e armazenada em secret manager.
+- Definir `ASPNETCORE_ENVIRONMENT=Production`.
+- Não publicar PostgreSQL diretamente na internet.
+- Usar HTTPS via reverse proxy.
+- Configurar CORS, rate limiting e logs sem dados sensíveis.
+- Rotacionar credenciais e tokens conforme a política de segurança.
+
+---
+
+## 11. Mediator, CQRS e handlers
+
+Os comandos e queries implementam contratos do pacote `Prime.Architecture.Mediator.Standard`.
+
+Exemplo conceitual:
 
 ```csharp
-public class Usuario : IdentityUser<Guid>
+public record CriarServicoCommand(...) : IRequest<ServicoDto>;
+
+public sealed class CriarServicoHandler : IRequestHandler<CriarServicoCommand, ServicoDto>
 {
-    public string Nome          { get; set; } = string.Empty;
-    public string Sobrenome     { get; set; } = string.Empty;
-    public TipoUsuario Tipo     { get; set; }   // Cliente | Funcionario | Admin
-    public DateTime CriadoEm   { get; set; }
-    public DateTime? AtualizadoEm { get; set; }
-
-    // Navegação
-    public ICollection<Agendamento> Agendamentos { get; set; } = [];
-}
-
-public enum TipoUsuario { Cliente, Funcionario, Admin }
-```
-
-### 7.2 `Estabelecimento`
-
-```csharp
-public class Estabelecimento
-{
-    public Guid   Id               { get; set; }
-    public string RazaoSocial      { get; set; } = string.Empty;
-    public string NomeFantasia     { get; set; } = string.Empty;
-    public string Cnpj             { get; set; } = string.Empty;
-    public string? InscricaoEstadual { get; set; }
-    public string Telefone         { get; set; } = string.Empty;
-    public string Email            { get; set; } = string.Empty;
-    public string Descricao        { get; set; } = string.Empty;
-    public string HorarioFuncionamento { get; set; } = string.Empty;
-    public bool   Ativo            { get; set; } = true;
-    public DateTime CriadoEm      { get; set; }
-    public DateTime? AtualizadoEm { get; set; }
-
-    // Value Object
-    public Endereco Endereco       { get; set; } = null!;
-
-    // Navegação
-    public ICollection<Funcionario>  Funcionarios  { get; set; } = [];
-    public ICollection<Servico>      Servicos       { get; set; } = [];
-    public ICollection<Agendamento>  Agendamentos   { get; set; } = [];
-}
-```
-
-### 7.3 `Endereco` (Value Object embutido)
-
-```csharp
-[Owned]
-public class Endereco
-{
-    public string Rua          { get; set; } = string.Empty;
-    public string Numero       { get; set; } = string.Empty;
-    public string? Complemento { get; set; }
-    public string Bairro       { get; set; } = string.Empty;
-    public string Cep          { get; set; } = string.Empty;
-    public string Cidade       { get; set; } = string.Empty;
-    public string Estado       { get; set; } = string.Empty;
-    public decimal? Latitude   { get; set; }
-    public decimal? Longitude  { get; set; }
-}
-```
-
-### 7.4 `Funcionario`
-
-```csharp
-public class Funcionario
-{
-    public Guid   Id               { get; set; }
-    public Guid   EstabelecimentoId { get; set; }
-    public Guid   UsuarioId        { get; set; }
-    public string Nome             { get; set; } = string.Empty;
-    public string Email            { get; set; } = string.Empty;
-    public string Telefone         { get; set; } = string.Empty;
-    public string Funcao           { get; set; } = string.Empty;  // ex.: Barbeiro, Cabeleireiro
-    public decimal PercentualComissao { get; set; }
-    public bool   Ativo            { get; set; } = true;
-    public DateTime CriadoEm      { get; set; }
-
-    // Navegação
-    public Estabelecimento Estabelecimento { get; set; } = null!;
-    public Usuario         Usuario         { get; set; } = null!;
-    public ICollection<Agendamento> Agendamentos { get; set; } = [];
-}
-```
-
-### 7.5 `Servico`
-
-```csharp
-public class Servico
-{
-    public Guid   Id               { get; set; }
-    public Guid   EstabelecimentoId { get; set; }
-    public string Nome             { get; set; } = string.Empty;
-    public string? Descricao       { get; set; }
-    public int    DuracaoMinutos   { get; set; }
-    public decimal Preco           { get; set; }
-    public bool   Ativo            { get; set; } = true;
-
-    // Navegação
-    public Estabelecimento Estabelecimento { get; set; } = null!;
-    public ICollection<Agendamento> Agendamentos { get; set; } = [];
-}
-```
-
-### 7.6 `Agendamento`
-
-```csharp
-public class Agendamento
-{
-    public Guid   Id               { get; set; }
-    public Guid   ClienteId        { get; set; }
-    public Guid   EstabelecimentoId { get; set; }
-    public Guid   FuncionarioId    { get; set; }
-    public Guid   ServicoId        { get; set; }
-    public DateTime DataHora       { get; set; }
-    public StatusAgendamento Status { get; set; }  // Pendente | Confirmado | Concluido | Cancelado
-    public string? Observacoes     { get; set; }
-    public decimal ValorTotal      { get; set; }
-    public string? NumeroReserva   { get; set; }   // código legível ao cliente
-    public bool   LembreteEnviado  { get; set; } = false;
-    public DateTime CriadoEm      { get; set; }
-    public DateTime? AtualizadoEm { get; set; }
-
-    // Navegação
-    public Usuario         Cliente         { get; set; } = null!;
-    public Estabelecimento Estabelecimento { get; set; } = null!;
-    public Funcionario     Funcionario     { get; set; } = null!;
-    public Servico         Servico         { get; set; } = null!;
-}
-
-public enum StatusAgendamento { Pendente, Confirmado, Concluido, Cancelado }
-```
-
-### 7.7 `Contato`
-
-```csharp
-public class Contato
-{
-    public Guid   Id               { get; set; }
-    public string Assunto          { get; set; } = string.Empty;
-    public string Nome             { get; set; } = string.Empty;
-    public string Sobrenome        { get; set; } = string.Empty;
-    public string Email            { get; set; } = string.Empty;
-    public string? NumeroReserva   { get; set; }
-    public string Descricao        { get; set; } = string.Empty;
-    public StatusContato Status    { get; set; } = StatusContato.Aberto;
-    public DateTime CriadoEm      { get; set; }
-}
-
-public enum StatusContato { Aberto, EmAndamento, Resolvido }
-```
-
-### 7.8 `RefreshToken`
-
-```csharp
-public class RefreshToken
-{
-    public Guid   Id        { get; set; }
-    public Guid   UsuarioId { get; set; }
-    public string Token     { get; set; } = string.Empty;
-    public DateTime ExpiraEm { get; set; }
-    public bool   Revogado  { get; set; } = false;
-    public string? DispositivoInfo { get; set; }
-    public DateTime CriadoEm { get; set; }
-
-    public Usuario Usuario  { get; set; } = null!;
-}
-```
-
----
-
-## 8. Rotas da API REST
-
-**Base URL:** `https://api.navalhaecorte.com.br/api/v1`
-
-### 8.1 Autenticação — `/auth`
-
-| Método | Rota | Corpo | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `POST` | `/auth/cadastro` | `{ nome, sobrenome, email, senha, tipo }` | `201 Created` + `{ token, refreshToken }` | ❌ | Cadastro de novo usuário. |
-| `POST` | `/auth/login` | `{ email, senha }` | `200 OK` + `{ token, refreshToken, usuario }` | ❌ | Autenticação com credenciais. |
-| `POST` | `/auth/refresh` | `{ refreshToken }` | `200 OK` + `{ token, refreshToken }` | ❌ | Renova o access token via refresh token. |
-| `POST` | `/auth/logout` | `{ refreshToken }` | `204 No Content` | ✅ JWT | Revoga o refresh token. |
-| `POST` | `/auth/esqueci-senha` | `{ email }` | `200 OK` | ❌ | Envia e-mail de recuperação. |
-| `POST` | `/auth/redefinir-senha` | `{ token, novaSenha }` | `200 OK` | ❌ | Redefine senha via token enviado por e-mail. |
-
-### 8.2 Usuário — `/usuarios`
-
-| Método | Rota | Corpo | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `GET` | `/usuarios/me` | — | `200 OK` + `UsuarioDto` | ✅ JWT | Retorna o perfil do usuário autenticado. |
-| `PUT` | `/usuarios/me` | `{ nome, sobrenome, telefone }` | `200 OK` + `UsuarioDto` | ✅ JWT | Atualiza dados do perfil. |
-| `PUT` | `/usuarios/me/endereco` | `EnderecoDto` | `200 OK` | ✅ JWT | Atualiza endereço do cliente. |
-| `PUT` | `/usuarios/me/senha` | `{ senhaAtual, novaSenha }` | `204 No Content` | ✅ JWT | Altera a senha. |
-
-### 8.3 Estabelecimentos — `/estabelecimentos`
-
-| Método | Rota | Corpo / Query | Resposta | Auth | Descrição |
-|--------|------|---------------|----------|------|-----------|
-| `GET` | `/estabelecimentos` | `?busca=&cidade=&pagina=&tamanho=` | `200 OK` + `PagedResult<EstabelecimentoDto>` | ❌ | Lista/pesquisa estabelecimentos com paginação. |
-| `GET` | `/estabelecimentos/{id}` | — | `200 OK` + `EstabelecimentoDetalheDto` | ❌ | Detalhes de um estabelecimento (inclui serviços, funcionários públicos). |
-| `POST` | `/estabelecimentos` | `CriarEstabelecimentoDto` | `201 Created` + `EstabelecimentoDto` | ✅ JWT (Empresa) | Cadastra novo estabelecimento. |
-| `PUT` | `/estabelecimentos/{id}` | `AtualizarEstabelecimentoDto` | `200 OK` + `EstabelecimentoDto` | ✅ JWT (Empresa) | Atualiza dados do estabelecimento. |
-| `DELETE` | `/estabelecimentos/{id}` | — | `204 No Content` | ✅ JWT (Admin) | Desativa um estabelecimento. |
-
-### 8.4 Funcionários — `/estabelecimentos/{id}/funcionarios`
-
-| Método | Rota | Corpo | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `GET` | `/estabelecimentos/{id}/funcionarios` | — | `200 OK` + `List<FuncionarioDto>` | ✅ JWT (Empresa) | Lista funcionários do estabelecimento. |
-| `POST` | `/estabelecimentos/{id}/funcionarios` | `CriarFuncionarioDto` | `201 Created` + `FuncionarioDto` | ✅ JWT (Empresa) | Adiciona funcionário ao estabelecimento. |
-| `PUT` | `/estabelecimentos/{id}/funcionarios/{funcId}` | `AtualizarFuncionarioDto` | `200 OK` + `FuncionarioDto` | ✅ JWT (Empresa) | Edita dados do funcionário. |
-| `PATCH` | `/estabelecimentos/{id}/funcionarios/{funcId}/vinculo` | `{ ativo: bool }` | `200 OK` | ✅ JWT (Empresa) | Ativa ou desativa o vínculo do funcionário. |
-
-### 8.5 Serviços — `/estabelecimentos/{id}/servicos`
-
-| Método | Rota | Corpo | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `GET` | `/estabelecimentos/{id}/servicos` | — | `200 OK` + `List<ServicoDto>` | ❌ | Lista serviços disponíveis do estabelecimento. |
-| `POST` | `/estabelecimentos/{id}/servicos` | `CriarServicoDto` | `201 Created` + `ServicoDto` | ✅ JWT (Empresa) | Adiciona serviço ao estabelecimento. |
-| `PUT` | `/estabelecimentos/{id}/servicos/{svcId}` | `AtualizarServicoDto` | `200 OK` + `ServicoDto` | ✅ JWT (Empresa) | Edita serviço. |
-| `DELETE` | `/estabelecimentos/{id}/servicos/{svcId}` | — | `204 No Content` | ✅ JWT (Empresa) | Remove (desativa) serviço. |
-
-### 8.6 Agendamentos — `/agendamentos`
-
-| Método | Rota | Corpo / Query | Resposta | Auth | Descrição |
-|--------|------|---------------|----------|------|-----------|
-| `GET` | `/agendamentos/meus` | `?status=&pagina=` | `200 OK` + `PagedResult<AgendamentoDto>` | ✅ JWT (Cliente) | Lista agendamentos do cliente autenticado. |
-| `GET` | `/agendamentos/agenda` | `?mes=&ano=` | `200 OK` + `List<AgendamentoDiaDto>` | ✅ JWT (Funcionario) | Retorna agenda mensal do funcionário autenticado. |
-| `GET` | `/agendamentos/agenda/{dia}` | `?mes=&ano=` | `200 OK` + `List<AgendamentoDto>` | ✅ JWT (Funcionario) | Agendamentos de um dia específico do funcionário. |
-| `POST` | `/agendamentos` | `CriarAgendamentoDto` | `201 Created` + `AgendamentoDto` | ✅ JWT (Cliente) | Cria novo agendamento. |
-| `PUT` | `/agendamentos/{id}/remarcar` | `{ novaDataHora }` | `200 OK` + `AgendamentoDto` | ✅ JWT (Cliente) | Remarca horário do agendamento. |
-| `PATCH` | `/agendamentos/{id}/cancelar` | — | `200 OK` | ✅ JWT (Cliente) | Cancela agendamento do cliente. |
-| `PATCH` | `/agendamentos/{id}/status` | `{ status }` | `200 OK` | ✅ JWT (Funcionario/Empresa) | Altera status (Confirmar, Concluir, Cancelar). |
-
-### 8.7 Relatórios — `/relatorios`
-
-| Método | Rota | Query | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `GET` | `/relatorios/comissoes` | `?mes=&ano=&funcionarioId=` | `200 OK` + `RelatorioComissaoDto` | ✅ JWT (Empresa) | Relatório de comissões por profissional. |
-| `GET` | `/relatorios/atendimentos` | `?inicio=&fim=` | `200 OK` + `RelatorioAtendimentosDto` | ✅ JWT (Empresa) | Resumo de atendimentos no período. |
-
-### 8.8 Contato — `/contato`
-
-| Método | Rota | Corpo | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `POST` | `/contato` | `EnviarContatoDto` | `201 Created` | ❌ | Envia mensagem de suporte. |
-| `GET` | `/contato` | `?status=&pagina=` | `200 OK` + `PagedResult<ContatoDto>` | ✅ JWT (Admin) | Lista mensagens de contato recebidas. |
-| `PATCH` | `/contato/{id}/status` | `{ status }` | `200 OK` | ✅ JWT (Admin) | Atualiza status de uma mensagem de contato. |
-
-### 8.9 Horários Disponíveis — `/estabelecimentos/{id}/disponibilidade`
-
-| Método | Rota | Query | Resposta | Auth | Descrição |
-|--------|------|-------|----------|------|-----------|
-| `GET` | `/estabelecimentos/{id}/disponibilidade` | `?data=&funcionarioId=&servicoId=` | `200 OK` + `List<HorarioDisponivelDto>` | ❌ | Retorna slots de horário disponíveis para agendamento. |
-
----
-
-## 9. Segurança
-
-### 9.1 Autenticação — JWT + Refresh Token
-
-```
-1. Cliente envia credenciais (POST /auth/login)
-2. API valida, gera:
-   - Access Token (JWT, exp: 60min, assinado com RS256)
-   - Refresh Token (GUID opaco, salvo no banco, exp: 30 dias)
-3. Front-end armazena o access token em memória (nunca localStorage)
-   e o refresh token em cookie HttpOnly + Secure + SameSite=Strict
-4. Em cada requisição protegida: Authorization: Bearer <access_token>
-5. Ao expirar, front-end chama POST /auth/refresh automaticamente
-6. Refresh token é rotacionado a cada uso (detecção de reutilização = revogação total)
-```
-
-### 9.2 Autorização baseada em Papéis (RBAC)
-
-| Papel | Permissões |
-|-------|-----------|
-| `Cliente` | Pesquisar, visualizar estabelecimentos, criar/remarcar/cancelar próprios agendamentos, editar próprio perfil. |
-| `Funcionario` | Visualizar própria agenda, atualizar status de agendamentos. |
-| `Empresa` | Gerenciar estabelecimento próprio, funcionários, serviços, relatórios. |
-| `Admin` | Acesso total: desativar estabelecimentos, gerenciar contatos. |
-
-### 9.3 Proteções Implementadas
-
-| Proteção | Implementação |
-|----------|---------------|
-| Rate Limiting | `AspNetCoreRateLimit` — 10 tentativas de login/min por IP |
-| CORS | Apenas origens do front-end em produção |
-| HTTPS Enforcement | `UseHttpsRedirection` + HSTS em produção |
-| Validação de entrada | `FluentValidation` em todos os DTOs de entrada |
-| Proteção contra injeção SQL | EF Core com parâmetros; sem queries raw com interpolação |
-| Headers de segurança | `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy` via middleware |
-| Logging seguro | Campos sensíveis destruturados com `[JsonIgnore]` e mascaramento no Serilog |
-| Auditoria | Campos `CriadoEm` / `AtualizadoEm` em todas as entidades; log de autenticações |
-
----
-
-## 10. Padrões de Arquitetura e Boas Práticas
-
-### 10.1 Clean Architecture
-
-- Dependências apontam sempre para dentro: `API → Application → Domain`. A `Infrastructure` implementa as interfaces definidas no `Domain`.
-- O `Domain` não referencia nenhum framework externo.
-
-### 10.2 CQRS com MediatR
-
-```csharp
-// Exemplo de Command
-public record CriarAgendamentoCommand(
-    Guid ClienteId,
-    Guid EstabelecimentoId,
-    Guid FuncionarioId,
-    Guid ServicoId,
-    DateTime DataHora,
-    string? Observacoes
-) : IRequest<AgendamentoDto>;
-
-// Handler
-public class CriarAgendamentoHandler(
-    IAgendamentoRepository agendamentoRepo,
-    IMapper mapper,
-    IEmailService emailService
-) : IRequestHandler<CriarAgendamentoCommand, AgendamentoDto>
-{
-    public async Task<AgendamentoDto> Handle(
-        CriarAgendamentoCommand request,
-        CancellationToken cancellationToken)
+    public Task<ServicoDto> Handle(CriarServicoCommand request, CancellationToken ct)
     {
-        // 1. Verificar disponibilidade do slot
-        // 2. Criar entidade
-        // 3. Persistir
-        // 4. Disparar evento de domínio (notificação WhatsApp/e-mail)
-        // 5. Retornar DTO
+        // regra de aplicação
     }
 }
 ```
 
-### 10.3 Repository Pattern
+Os controllers não precisam conhecer a implementação do handler:
 
 ```csharp
-public interface IAgendamentoRepository
-{
-    Task<Agendamento?> ObterPorIdAsync(Guid id, CancellationToken ct);
-    Task<IReadOnlyList<Agendamento>> ObterPorClienteAsync(Guid clienteId, CancellationToken ct);
-    Task<IReadOnlyList<Agendamento>> ObterPorFuncionarioNoMesAsync(Guid funcId, int ano, int mes, CancellationToken ct);
-    Task AdicionarAsync(Agendamento agendamento, CancellationToken ct);
-    Task AtualizarAsync(Agendamento agendamento, CancellationToken ct);
-    Task<bool> ExisteConflitoDeHorarioAsync(Guid funcId, DateTime dataHora, int duracaoMin, CancellationToken ct);
-}
+return Ok(await mediator.Send(command, ct));
 ```
 
-### 10.4 Global Exception Handler
+Os handlers principais estão organizados em `Api/Handlers/NavalhaCorte`. Os fluxos legados foram adaptados em `Api/Handlers/LegacyCommandHandlers.cs`, que encaminha commands antigos para os handlers existentes.
 
-```csharp
-// Program.cs
-app.UseExceptionHandler(builder =>
-    builder.Run(async context =>
-    {
-        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-        var response = exception switch
-        {
-            DomainException ex     => new ProblemDetails { Status = 422, Detail = ex.Message },
-            NotFoundException ex   => new ProblemDetails { Status = 404, Detail = ex.Message },
-            UnauthorizedException  => new ProblemDetails { Status = 401, Detail = "Não autorizado." },
-            _                      => new ProblemDetails { Status = 500, Detail = "Erro interno." }
-        };
-        context.Response.StatusCode = response.Status!.Value;
-        await context.Response.WriteAsJsonAsync(response);
-    })
-);
+Queries implementadas incluem:
+
+- `ListarBarbeariasQuery`.
+- `ObterBarbeariaQuery`.
+- `ListarServicosLegadosQuery`.
+- `ObterServicoLegadoQuery`.
+- `HorariosBarbeiroLegadoQuery`.
+- `AgendamentosBarbeiroLegadoQuery`.
+- `MeusAgendamentosQuery`.
+- `AgendaMensalQuery`.
+- `AgendaDiaQuery`.
+- `HorariosDisponiveisQuery`.
+- `ListarContatosQuery`.
+- `ListarEstabelecimentosQuery`.
+- `ObterEstabelecimentoQuery`.
+- `ListarFuncionariosQuery`.
+- `ListarServicosQuery`.
+- `RelatorioComissaoQuery`.
+- `RelatorioAtendimentosQuery`.
+
+Commands principais incluem criação, atualização, cancelamento, remarcação, alteração de status e envio de contato.
+
+---
+
+## 12. Endpoints implementados
+
+Todas as rotas abaixo são relativas à origem da API, por exemplo `http://localhost:8080`.
+
+### 12.1 Autenticação — `/api/v1/auth`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/v1/auth/login` | Autentica usuário por e-mail e senha. |
+| `POST` | `/api/v1/auth/logout` | Revoga um refresh token. |
+
+`login` recebe `LoginCommand`. O logout recebe o refresh token no corpo da requisição.
+
+### 12.2 Usuários legados — `/api/user`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/user/create-user` | Cria um usuário cliente. |
+| `POST` | `/api/user/create-barbershop-owner` | Cria um usuário proprietário de estabelecimento. |
+
+### 12.3 Estabelecimentos — `/api/v1/estabelecimentos`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/v1/estabelecimentos` | Lista estabelecimentos com busca, cidade, paginação e tamanho. |
+| `GET` | `/api/v1/estabelecimentos/{id}` | Obtém um estabelecimento. |
+| `POST` | `/api/v1/estabelecimentos` | Cria estabelecimento. |
+| `PUT` | `/api/v1/estabelecimentos/{id}` | Atualiza estabelecimento. |
+| `GET` | `/api/v1/estabelecimentos/{id}/funcionarios` | Lista funcionários do estabelecimento. |
+| `GET` | `/api/v1/estabelecimentos/{id}/servicos` | Lista serviços do estabelecimento. |
+| `GET` | `/api/v1/estabelecimentos/{id}/disponibilidade` | Consulta horários disponíveis. |
+
+A disponibilidade utiliza `data`, `funcionarioId` e `servicoId` como parâmetros de query.
+
+### 12.4 Agendamentos — `/api/v1/agendamentos`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/v1/agendamentos/meus` | Lista agendamentos de um cliente. |
+| `GET` | `/api/v1/agendamentos/agenda` | Lista agenda mensal do funcionário. |
+| `GET` | `/api/v1/agendamentos/agenda/{dia}` | Lista agenda de um dia. |
+| `POST` | `/api/v1/agendamentos` | Cria agendamento e valida conflito de horário. |
+| `PUT` | `/api/v1/agendamentos/{id}/remarcar` | Remarca agendamento. |
+| `PATCH` | `/api/v1/agendamentos/{id}/cancelar` | Cancela agendamento. |
+
+### 12.5 Contatos — `/api/v1/contato`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/v1/contato` | Envia contato. |
+| `GET` | `/api/v1/contato` | Lista contatos, opcionalmente filtrados por status. |
+| `PATCH` | `/api/v1/contato/{id}/status` | Atualiza status do contato. |
+
+### 12.6 Relatórios — `/api/v1/relatorios`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/v1/relatorios/comissoes` | Relatório de comissões por mês, ano e funcionário opcional. |
+| `GET` | `/api/v1/relatorios/atendimentos` | Relatório de atendimentos em um intervalo. |
+
+### 12.7 Fluxos legados — `/api/barbershop` e `/api/Appointment`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/barbershop/create-barbershop` | Cria barbearia. |
+| `GET` | `/api/barbershop/get-barbershops` | Lista barbearias. |
+| `POST` | `/api/barbershop/create-barber` | Cria barbeiro. |
+| `POST` | `/api/barbershop/create-barber-schedule` | Cria horário de barbeiro. |
+| `POST` | `/api/barbershop/create-service` | Cria serviço. |
+| `GET` | `/api/barbershop/get-services` | Lista serviços. |
+| `GET` | `/api/barbershop/get-barbershop/{id}` | Obtém barbearia. |
+| `GET` | `/api/barbershop/get-service` | Obtém serviço por `barberShopId` e `id`. |
+| `GET` | `/api/Appointment/get-barbers-schedule` | Consulta horários disponíveis. |
+| `POST` | `/api/Appointment/create-appointment` | Cria agendamento legado. |
+| `GET` | `/api/Appointment/get-appointments-barber` | Lista agendamentos de barbeiro. |
+
+Os endpoints legados existem por compatibilidade e devem ser gradualmente substituídos pelos endpoints versionados.
+
+Os retornos de leitura dos endpoints legados também seguem CQRS. Os controllers não acessam mais diretamente `IBarberShopRepository`, `IAppointmentRepository` ou `IBarberShopService`. O fluxo utilizado é:
+
+```text
+GET legado → Query → Mediator → QueryHandler → Repository/Service → DTO → HTTP response
 ```
 
-### 10.5 Padrão de Resposta da API
+Queries legadas e seus retornos:
 
-```json
-// Sucesso (lista paginada)
-{
-  "dados": [ ... ],
-  "pagina": 1,
-  "tamanhoPagina": 20,
-  "total": 150
-}
+| Query | Retorno |
+|---|---|
+| `ListarBarbeariasQuery` | `List<BarberShopDto>` |
+| `ObterBarbeariaQuery` | `BarberShopDto` |
+| `ListarServicosLegadosQuery` | `List<BarberShopServiceDto>` |
+| `ObterServicoLegadoQuery` | `BarberShopServiceDto` |
+| `HorariosBarbeiroLegadoQuery` | `List<HorarioDisponivelDto>` |
+| `AgendamentosBarbeiroLegadoQuery` | `List<AppointmentDto>` |
 
-// Erro (ProblemDetails — RFC 7807)
-{
-  "type": "https://navalhaecorte.com.br/errors/validation",
-  "title": "Erro de validação",
-  "status": 422,
-  "detail": "O campo 'dataHora' deve ser uma data futura.",
-  "instance": "/api/v1/agendamentos",
-  "errors": {
-    "dataHora": ["O campo 'dataHora' deve ser uma data futura."]
-  }
-}
+As implementações estão em `Api/Handlers/LegacyQueryHandlers.cs` e as queries em `Api/Queries/LegacyQueries.cs`. O mapeamento dos modelos de leitura é realizado pelo `IMapper` do `Prime.Architecture` antes do retorno HTTP.
+
+---
+
+## 13. Persistência e repositórios
+
+As interfaces de domínio são implementadas no projeto `ProjetoIntegradorBack.Infrastructure`.
+
+Repositórios existentes:
+
+- `UserRepository`.
+- `RefreshTokenRepository`.
+- `BarberShopRepository`.
+- `AppointmentRepository`.
+- `EstabelecimentoRepository`.
+- `FuncionarioRepository`.
+- `ServicoRepository`.
+- `AgendamentoRepository`.
+- `ContatoRepository`.
+- `RelatorioRepository`.
+
+Os repositórios são registrados como `Scoped` no container de injeção de dependência.
+
+Os fluxos novos usam entidades como `Estabelecimento`, `Funcionario`, `Servico`, `Agendamento` e `Contato`. Os fluxos legados mantêm entidades como `BarberShop`, `Barber`, `BarberShopService` e `Appointment`.
+
+---
+
+## 14. DTOs e contratos de retorno
+
+Os endpoints retornam DTOs em vez de expor diretamente as entidades de domínio. O mapeamento é configurado em `Api/Mappings/NavalhaCorteMappingProfile.cs` usando `Prime.Architecture.Mapper.Configuration.MappingProfile`, registrado no `Program.cs` como singleton através de `IMapper`.
+
+Mapeamentos configurados:
+
+```text
+Endereco              → EnderecoDto
+EnderecoDto           → Endereco
+Estabelecimento       → EstabelecimentoDto
+Estabelecimento       → EstabelecimentoDetalheDto
+Funcionario           → FuncionarioDto
+Servico               → ServicoDto
+Agendamento           → AgendamentoDto
+Contato               → ContatoDto
+ClientUser            → UsuarioDto
+BarberShop            → BarberShopDto
+BarberShopService     → BarberShopServiceDto
+Appointment           → AppointmentDto
+```
+
+### DTOs de autenticação e usuário
+
+#### `AuthResponseDto`
+
+| Propriedade | Tipo | Descrição |
+|---|---|---|
+| `AccessToken` | `string` | Token JWT de acesso. |
+| `RefreshToken` | `string` | Token usado para renovação/revogação. |
+| `Usuario` | `UsuarioDto` | Dados públicos do usuário autenticado. |
+
+#### `UsuarioDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `Nome` | `string` |
+| `Email` | `string` |
+| `Telefone` | `string?` |
+| `Tipo` | `UserType` |
+| `ProfilePictureUrl` | `string` |
+
+### DTOs de estabelecimento, funcionário e serviço
+
+#### `EstabelecimentoDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `RazaoSocial` | `string` |
+| `NomeFantasia` | `string` |
+| `Telefone` | `string` |
+| `Email` | `string` |
+| `Descricao` | `string` |
+| `HorarioFuncionamento` | `string` |
+| `Ativo` | `bool` |
+| `Endereco` | `EnderecoDto` |
+| `CriadoEm` | `DateTime` |
+
+`EstabelecimentoDetalheDto` herda todas as propriedades de `EstabelecimentoDto` e acrescenta:
+
+| Propriedade | Tipo |
+|---|---|
+| `Servicos` | `List<ServicoDto>` |
+| `Funcionarios` | `List<FuncionarioDto>` |
+
+#### `FuncionarioDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `EstabelecimentoId` | `Guid` |
+| `UsuarioId` | `Guid` |
+| `Nome` | `string` |
+| `Email` | `string` |
+| `Telefone` | `string` |
+| `Funcao` | `string` |
+| `PercentualComissao` | `decimal` |
+| `Ativo` | `bool` |
+| `CriadoEm` | `DateTime` |
+
+#### `ServicoDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `EstabelecimentoId` | `Guid` |
+| `Nome` | `string` |
+| `Descricao` | `string?` |
+| `DuracaoMinutos` | `int` |
+| `Preco` | `decimal` |
+| `Ativo` | `bool` |
+
+#### `EnderecoDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Rua` | `string` |
+| `Numero` | `string` |
+| `Complemento` | `string?` |
+| `Bairro` | `string` |
+| `Cidade` | `string` |
+| `Estado` | `string` |
+| `Latitude` | `decimal?` |
+| `Longitude` | `decimal?` |
+| `Cep` | `string` |
+
+### DTOs de agendamento e disponibilidade
+
+#### `AgendamentoDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `ClienteId` | `Guid` |
+| `EstabelecimentoId` | `Guid` |
+| `NomeEstabelecimento` | `string` |
+| `FuncionarioId` | `Guid` |
+| `NomeFuncionario` | `string` |
+| `ServicoId` | `Guid` |
+| `NomeServico` | `string` |
+| `DataHora` | `DateTime` |
+| `Status` | `StatusAgendamento` |
+| `Observacoes` | `string?` |
+| `ValorTotal` | `decimal` |
+| `NumeroReserva` | `string?` |
+| `CriadoEm` | `DateTime` |
+
+#### `AgendamentoDiaDto`
+
+Representa um agrupamento da agenda mensal:
+
+| Propriedade | Tipo |
+|---|---|
+| `Dia` | `DateOnly` |
+| `TotalAgendamentos` | `int` |
+| `Agendamentos` | `List<AgendamentoDto>` |
+
+#### `HorarioDisponivelDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Horario` | `TimeOnly` |
+| `Disponivel` | `bool` |
+
+#### `PagedResultDto<T>`
+
+Usado em listagens paginadas:
+
+| Propriedade | Tipo |
+|---|---|
+| `Dados` | `List<T>` |
+| `Pagina` | `int` |
+| `TamanhoPagina` | `int` |
+| `Total` | `int` |
+
+### DTOs de contato e relatórios
+
+#### `ContatoDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `Assunto` | `string` |
+| `Nome` | `string` |
+| `Sobrenome` | `string` |
+| `Email` | `string` |
+| `NumeroReserva` | `string?` |
+| `Descricao` | `string` |
+| `Status` | `StatusContato` |
+| `CriadoEm` | `DateTime` |
+
+#### `RelatorioComissaoDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Mes` | `int` |
+| `Ano` | `int` |
+| `Comissoes` | `List<ComissaoFuncionarioInfo>` |
+| `TotalFaturamento` | `decimal` |
+| `TotalComissoes` | `decimal` |
+
+#### `RelatorioAtendimentosDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Inicio` | `DateTime` |
+| `Fim` | `DateTime` |
+| `Resumo` | `ResumoAtendimentosInfo` |
+
+`ComissaoFuncionarioInfo` e `ResumoAtendimentosInfo` são modelos de relatório em `Domain/Models` e representam os valores agregados retornados pelo repositório.
+
+### DTOs dos endpoints legados
+
+Para evitar que os endpoints legados exponham entidades diretamente, foram adicionados:
+
+#### `BarberShopDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `Name` | `string` |
+| `Description` | `string` |
+| `Phone` | `string` |
+| `Email` | `string` |
+| `Logo` | `string` |
+
+#### `BarberShopServiceDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `Name` | `string` |
+| `Price` | `decimal` |
+| `DurationInMinutes` | `int` |
+
+#### `AppointmentDto`
+
+| Propriedade | Tipo |
+|---|---|
+| `Id` | `Guid` |
+| `BarberId` | `Guid` |
+| `ServiceId` | `Guid` |
+| `CustomerName` | `string` |
+| `StartDateTime` | `DateTime` |
+| `EndDateTime` | `DateTime` |
+| `Status` | `AppointmentStatus` |
+
+Os endpoints legados de consulta agora usam `IMapper` e os mapeamentos acima antes de serializar a resposta.
+
+## 15. Modelo de domínio
+
+Principais entidades encontradas no domínio:
+
+| Entidade | Responsabilidade |
+|---|---|
+| `ClientUser` / `User` | Dados e perfil de usuário. |
+| `RefreshToken` | Token de renovação e revogação. |
+| `Estabelecimento` / `BarberShop` | Dados do estabelecimento. |
+| `Funcionario` / `Barber` | Profissional vinculado ao estabelecimento. |
+| `Servico` / `BarberShopService` | Serviço oferecido e preço/duração. |
+| `Agendamento` / `Appointment` | Reserva de horário. |
+| `Contato` | Solicitação enviada pelo formulário de contato. |
+| `BarberSchedule` | Horários de trabalho do profissional. |
+| `BusinessHours` | Horário de funcionamento do estabelecimento. |
+| `ScheduleBlock` | Bloqueios de agenda. |
+| `Plan` / `Subscription` | Estruturas de plano e assinatura. |
+
+Enums de domínio incluem status de agendamento e status de contato. DTOs são utilizados para evitar expor diretamente todas as entidades nas respostas HTTP.
+
+---
+
+## 16. Documentação da API
+
+Em ambiente de desenvolvimento, a aplicação registra Swagger e Scalar.
+
+Com a API em execução localmente, os endereços esperados são:
+
+```text
+Swagger JSON: http://localhost:8080/swagger/v1/swagger.json
+Scalar:       http://localhost:8080/scalar
+```
+
+A aplicação também possui uma rota raiz que redireciona para `/scalar`.
+
+Para testar endpoints autenticados:
+
+1. Execute o login.
+2. Copie o access token retornado.
+3. Envie o header:
+
+```http
+Authorization: Bearer <access-token>
 ```
 
 ---
 
-## 11. Diagrama de Arquitetura
+## 17. Limitações e próximos passos
 
-```mermaid
-graph TD
-    subgraph Cliente["Cliente (Browser)"]
-        FE["React + TypeScript\nVite SPA"]
-    end
+### Segurança e operação
 
-    subgraph CDN["CDN / Nginx"]
-        STATIC["Arquivos estáticos\n(HTML, JS, CSS)"]
-    end
+- Configurar CORS com origens permitidas.
+- Adicionar rate limiting para login e endpoints sensíveis.
+- Configurar HTTPS no ambiente de produção.
+- Remover credenciais padrão do ambiente de desenvolvimento.
+- Adicionar tratamento global padronizado de exceções.
+- Evitar exposição de mensagens internas em respostas de erro.
 
-    subgraph API["API Layer — ASP.NET Core 8"]
-        MW["Middlewares\n(Auth, CORS, RateLimit, Logging)"]
-        CTRL["Controllers"]
-        MED["MediatR\n(Commands/Queries)"]
-    end
+### Qualidade
 
-    subgraph APP["Application Layer"]
-        HDLR["Handlers"]
-        VAL["Validators\n(FluentValidation)"]
-        MAP["AutoMapper\n(DTO <-> Entity)"]
-    end
+- Criar testes unitários para handlers, serviços e entidades.
+- Criar testes de integração para controllers e repositórios.
+- Adicionar validação consistente para todos os commands legados.
+- Padronizar os endpoints legados com a API `/api/v1`.
+- Habilitar nullable reference types gradualmente e eliminar os avisos existentes.
 
-    subgraph DOMAIN["Domain Layer"]
-        ENT["Entities"]
-        INTF["Interfaces\n(IRepository, IService)"]
-        EVT["Domain Events"]
-    end
+### Produto
 
-    subgraph INFRA["Infrastructure Layer"]
-        REPO["Repositories\n(EF Core)"]
-        EXT["External Services\n(WhatsApp, Maps, Email)"]
-    end
+- Implementar recuperação de senha.
+- Integrar notificações por e-mail e WhatsApp.
+- Implementar refresh token rotation.
+- Adicionar paginação e filtros aos endpoints legados.
+- Implementar cálculo e fechamento de comissões conforme regra de negócio.
+- Adicionar observabilidade, métricas e tracing.
+- Automatizar migrations e deploy por pipeline CI/CD.
 
-    subgraph DB["Data Layer"]
-        PG[("PostgreSQL 16")]
-        REDIS[("Redis\nCache / Sessão")]
-    end
+---
 
-    FE -->|"HTTPS REST"| MW
-    MW --> CTRL
-    CTRL --> MED
-    MED --> HDLR
-    HDLR --> VAL
-    HDLR --> MAP
-    HDLR --> INTF
-    INTF --> REPO
-    INTF --> EXT
-    REPO --> PG
-    MW --> REDIS
+## Referências rápidas
+
+```bash
+# Restaurar
+dotnet restore
+
+# Compilar
+dotnet build ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
+
+# Executar
+dotnet run --project ProjetoIntegradorBack.Api/ProjetoIntegradorBack.Api.csproj
+
+# Validar Compose
+docker compose --env-file .env.example config
+
+# Subir infraestrutura
+docker compose up --build
+
+# Derrubar containers
+docker compose down
 ```
-
----
-
-## 12. Diagrama de Entidade-Relacionamento
-
-```mermaid
-erDiagram
-    USUARIO {
-        uuid id PK
-        string nome
-        string sobrenome
-        string email
-        string senha_hash
-        enum tipo
-        datetime criado_em
-    }
-
-    ESTABELECIMENTO {
-        uuid id PK
-        string razao_social
-        string nome_fantasia
-        string cnpj
-        string telefone
-        string email
-        string descricao
-        string horario_funcionamento
-        bool ativo
-        string rua
-        string numero
-        string bairro
-        string cep
-        string cidade
-        string estado
-        decimal latitude
-        decimal longitude
-        datetime criado_em
-    }
-
-    FUNCIONARIO {
-        uuid id PK
-        uuid estabelecimento_id FK
-        uuid usuario_id FK
-        string nome
-        string email
-        string telefone
-        string funcao
-        decimal percentual_comissao
-        bool ativo
-        datetime criado_em
-    }
-
-    SERVICO {
-        uuid id PK
-        uuid estabelecimento_id FK
-        string nome
-        string descricao
-        int duracao_minutos
-        decimal preco
-        bool ativo
-    }
-
-    AGENDAMENTO {
-        uuid id PK
-        uuid cliente_id FK
-        uuid estabelecimento_id FK
-        uuid funcionario_id FK
-        uuid servico_id FK
-        datetime data_hora
-        enum status
-        string observacoes
-        decimal valor_total
-        string numero_reserva
-        bool lembrete_enviado
-        datetime criado_em
-    }
-
-    CONTATO {
-        uuid id PK
-        string assunto
-        string nome
-        string sobrenome
-        string email
-        string numero_reserva
-        string descricao
-        enum status
-        datetime criado_em
-    }
-
-    REFRESH_TOKEN {
-        uuid id PK
-        uuid usuario_id FK
-        string token
-        datetime expira_em
-        bool revogado
-        datetime criado_em
-    }
-
-    USUARIO ||--o{ AGENDAMENTO : "realiza (como cliente)"
-    USUARIO ||--o{ FUNCIONARIO : "é"
-    USUARIO ||--o{ REFRESH_TOKEN : "possui"
-    ESTABELECIMENTO ||--|{ FUNCIONARIO : "emprega"
-    ESTABELECIMENTO ||--|{ SERVICO : "oferece"
-    ESTABELECIMENTO ||--o{ AGENDAMENTO : "recebe"
-    FUNCIONARIO ||--o{ AGENDAMENTO : "atende"
-    SERVICO ||--o{ AGENDAMENTO : "compõe"
-```
-
----
-
-## 13. Fluxo de Autenticação
-
-```mermaid
-sequenceDiagram
-    actor U as Usuário
-    participant FE as React SPA
-    participant API as ASP.NET Core API
-    participant DB as PostgreSQL
-
-    U->>FE: Preenche e-mail e senha
-    FE->>API: POST /auth/login
-    API->>DB: Busca usuário por e-mail
-    DB-->>API: UsuarioEntity
-    API->>API: Verifica senha (BCrypt)
-    API->>DB: Salva RefreshToken
-    API-->>FE: { accessToken, refreshToken (cookie HttpOnly) }
-    FE->>FE: Armazena accessToken em memória
-
-    loop Requisições autenticadas
-        FE->>API: GET /agendamentos/meus\n Authorization: Bearer <token>
-        API->>API: Valida JWT (assinatura + expiração)
-        API-->>FE: Dados do usuário
-    end
-
-    Note over FE,API: Token expira (60min)
-    FE->>API: POST /auth/refresh (cookie enviado automaticamente)
-    API->>DB: Valida e revoga RefreshToken antigo
-    API->>DB: Cria novo RefreshToken
-    API-->>FE: { novoAccessToken, novoRefreshToken }
-```
-
----
-
-## Glossário
-
-| Termo | Definição |
-|-------|-----------|
-| **Agendamento** | Reserva de horário realizada por um cliente para um serviço em um estabelecimento. |
-| **Estabelecimento** | Barbearia ou salão de beleza cadastrado como parceiro na plataforma. |
-| **Funcionário** | Profissional (barbeiro, cabeleireiro etc.) vinculado a um estabelecimento. |
-| **JWT** | JSON Web Token — padrão para autenticação stateless. |
-| **CQRS** | Command Query Responsibility Segregation — padrão que separa operações de leitura e escrita. |
-| **Clean Architecture** | Arquitetura que organiza o código em camadas concêntricas com dependências direcionadas ao domínio. |
-| **Value Object** | Objeto imutável definido pelos seus atributos, sem identidade própria (ex.: `Endereco`). |
-| **ProblemDetails** | Formato padronizado (RFC 7807) para respostas de erro em APIs HTTP. |
-
----
-
-*Documentação gerada em outubro de 2026 — Projeto Integrador UNIVESP — Navalha & Corte.*

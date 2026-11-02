@@ -7,13 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.9" />
         <PackageReference Include="Prime.Architecture" Version="2.0.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.18.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="10.1.7" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.1.7" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.7" />
@@ -21,7 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ProjetoIntegradorBack.Domain\ProjetoIntegradorBack.Domain.csproj" />
-    <ProjectReference Include="..\ProjetoIntegradorBack.Repository\ProjetoIntegradorBack.Infrastructure.csproj" />
+    <ProjectReference Include="..\ProjetoIntegradorBack.Infrastructure\ProjetoIntegradorBack.Infrastructure.csproj" />
     <ProjectReference Include="..\ProjetoIntegradorBack.Service\ProjetoIntegradorBack.Service.csproj" />
         <ProjectReference Include="..\ProjetoIntegradorBack.Shared\ProjetoIntegradorBack.Shared.csproj" />
   </ItemGroup>
