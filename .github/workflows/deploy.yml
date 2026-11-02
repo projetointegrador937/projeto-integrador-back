@@ -60,19 +60,26 @@ jobs:
             ./ ec2-user@3.16.111.34:/home/ec2-user/projeto-integrador-back/
 
       - name: Criar arquivo .env na EC2
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          JWT_ISSUER: ${{ secrets.JWT_ISSUER }}
+          JWT_AUDIENCE: ${{ secrets.JWT_AUDIENCE }}
+          JWT_ACCESS_TOKEN_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
         run: |
-          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 \
-            "cat > /home/ec2-user/projeto-integrador-back/.env" << 'ENVEOF'
-          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 "cat > /home/ec2-user/projeto-integrador-back/.env" << EOF
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
           ASPNETCORE_ENVIRONMENT=Production
           ASPNETCORE_URLS=http://+:8080
-          JWT_KEY=${{ secrets.JWT_KEY }}
-          JWT_ISSUER=${{ secrets.JWT_ISSUER }}
-          JWT_AUDIENCE=${{ secrets.JWT_AUDIENCE }}
-          JWT_ACCESS_TOKEN_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
-          ENVEOF
+          JWT_KEY=${JWT_KEY}
+          JWT_ISSUER=${JWT_ISSUER}
+          JWT_AUDIENCE=${JWT_AUDIENCE}
+          JWT_ACCESS_TOKEN_MINUTES=${JWT_ACCESS_TOKEN_MINUTES}
+          EOF
 
       - name: Build e subir containers com Docker Compose
         run: |
