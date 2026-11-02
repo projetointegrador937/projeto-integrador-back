@@ -14,17 +14,17 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Configurar SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_EC2 }}
-
-      - name: Adicionar host EC2 ao known_hosts
-        run: ssh-keyscan -H 3.16.111.34 >> ~/.ssh/known_hosts
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_EC2 }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H 3.16.111.34 >> ~/.ssh/known_hosts
 
       - name: Copiar arquivos para a EC2
         run: |
           rsync -az --delete \
+            -e "ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no" \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='**/bin' \
@@ -33,8 +33,8 @@ jobs:
 
       - name: Criar arquivo .env na EC2
         run: |
-          ssh ubuntu@3.16.111.34 bash -s << 'EOF'
-          cat > /home/ubuntu/projeto-integrador-back/.env << ENVFILE
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@3.16.111.34 \
+            "cat > /home/ubuntu/projeto-integrador-back/.env" << 'ENVEOF'
           POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
@@ -44,12 +44,12 @@ jobs:
           JWT_ISSUER=${{ secrets.JWT_ISSUER }}
           JWT_AUDIENCE=${{ secrets.JWT_AUDIENCE }}
           JWT_ACCESS_TOKEN_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
-          ENVFILE
-          EOF
+          ENVEOF
 
       - name: Build e subir containers com Docker Compose
         run: |
-          ssh ubuntu@3.16.111.34 bash -s << 'EOF'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@3.16.111.34 bash << 'EOF'
+          set -e
           cd /home/ubuntu/projeto-integrador-back
           docker compose build --no-cache api
           docker compose up -d --remove-orphans
@@ -58,17 +58,18 @@ jobs:
 
       - name: Aguardar API ficar saudável
         run: |
-          ssh ubuntu@3.16.111.34 bash -s << 'EOF'
+          ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ubuntu@3.16.111.34 bash << 'EOF'
+          set -e
           echo "Aguardando API responder..."
           for i in $(seq 1 24); do
             if curl -sf http://localhost:8080/ > /dev/null 2>&1; then
-              echo "API está no ar!"
+              echo "API esta no ar!"
               exit 0
             fi
-            echo "Tentativa $i/24 — aguardando 5s..."
+            echo "Tentativa $i/24 - aguardando 5s..."
             sleep 5
           done
-          echo "Timeout: API não respondeu em 120s."
+          echo "Timeout: API nao respondeu em 120s. Logs:"
           docker compose -f /home/ubuntu/projeto-integrador-back/docker-compose.yml logs api --tail=50
           exit 1
           EOF
