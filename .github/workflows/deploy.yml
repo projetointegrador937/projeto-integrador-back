@@ -1,0 +1,74 @@
+name: Deploy para EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build e Deploy na EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_EC2 }}
+
+      - name: Adicionar host EC2 ao known_hosts
+        run: ssh-keyscan -H 3.16.111.34 >> ~/.ssh/known_hosts
+
+      - name: Copiar arquivos para a EC2
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='**/bin' \
+            --exclude='**/obj' \
+            ./ ubuntu@3.16.111.34:/home/ubuntu/projeto-integrador-back/
+
+      - name: Criar arquivo .env na EC2
+        run: |
+          ssh ubuntu@3.16.111.34 bash -s << 'EOF'
+          cat > /home/ubuntu/projeto-integrador-back/.env << ENVFILE
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          ASPNETCORE_ENVIRONMENT=Production
+          ASPNETCORE_URLS=http://+:8080
+          JWT_KEY=${{ secrets.JWT_KEY }}
+          JWT_ISSUER=${{ secrets.JWT_ISSUER }}
+          JWT_AUDIENCE=${{ secrets.JWT_AUDIENCE }}
+          JWT_ACCESS_TOKEN_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_MINUTES }}
+          ENVFILE
+          EOF
+
+      - name: Build e subir containers com Docker Compose
+        run: |
+          ssh ubuntu@3.16.111.34 bash -s << 'EOF'
+          cd /home/ubuntu/projeto-integrador-back
+          docker compose build --no-cache api
+          docker compose up -d --remove-orphans
+          docker compose ps
+          EOF
+
+      - name: Aguardar API ficar saudável
+        run: |
+          ssh ubuntu@3.16.111.34 bash -s << 'EOF'
+          echo "Aguardando API responder..."
+          for i in $(seq 1 24); do
+            if curl -sf http://localhost:8080/ > /dev/null 2>&1; then
+              echo "API está no ar!"
+              exit 0
+            fi
+            echo "Tentativa $i/24 — aguardando 5s..."
+            sleep 5
+          done
+          echo "Timeout: API não respondeu em 120s."
+          docker compose -f /home/ubuntu/projeto-integrador-back/docker-compose.yml logs api --tail=50
+          exit 1
+          EOF
