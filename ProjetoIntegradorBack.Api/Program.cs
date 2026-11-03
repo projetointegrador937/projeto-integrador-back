@@ -130,6 +130,27 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ProjetoIntegradorBackDbContext>();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseMigration");
+
+    try
+    {
+        startupLogger.LogInformation("Verificando migrations pendentes do banco de dados.");
+        dbContext.Database.Migrate();
+        startupLogger.LogInformation("Migrations do banco de dados aplicadas com sucesso.");
+    }
+    catch (Exception exception)
+    {
+        startupLogger.LogCritical(exception,
+            "Falha ao aplicar migrations do banco de dados. A API não será iniciada.");
+        throw;
+    }
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

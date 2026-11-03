@@ -336,7 +336,7 @@ dotnet ef database update \
 
 A migration inicial existente é `InitialCreate`.
 
-> A aplicação não executa `Database.Migrate()` automaticamente durante o startup. Em ambientes novos, aplique as migrations explicitamente antes de usar a API.
+> A aplicação executa `Database.Migrate()` automaticamente durante o startup. Se houver falha ao conectar ao banco ou aplicar uma migration, a API registra o erro com nível crítico e não inicia. Em produção, confirme as credenciais e a disponibilidade do PostgreSQL antes do deploy.
 
 ---
 
