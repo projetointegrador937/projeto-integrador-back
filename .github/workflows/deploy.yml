@@ -103,6 +103,19 @@ jobs:
           ssh -i ~/.ssh/ec2_key -o StrictHostKeyChecking=no ec2-user@3.16.111.34 bash << 'EOF'
           set -e
           cd /home/ec2-user/projeto-integrador-back
+
+          echo "Espaço disponível antes da limpeza:"
+          df -h /
+
+          # Libera imagens antigas e cache do builder sem remover volumes.
+          # Os volumes não são removidos para preservar os dados do PostgreSQL.
+          sudo docker container prune -f
+          sudo docker image prune -af
+          sudo docker builder prune -af
+
+          echo "Espaço disponível após a limpeza:"
+          df -h /
+
           sudo docker compose build --no-cache api
           sudo docker compose up -d --remove-orphans
           sudo docker compose ps
