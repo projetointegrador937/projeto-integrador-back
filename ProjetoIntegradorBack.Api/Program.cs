@@ -160,7 +160,11 @@ if (app.Environment.IsDevelopment())
         .WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json"));
 }
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("Frontend");
 app.UseAuthentication();

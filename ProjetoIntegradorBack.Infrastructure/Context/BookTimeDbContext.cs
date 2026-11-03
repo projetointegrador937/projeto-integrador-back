@@ -82,7 +82,7 @@ namespace ProjetoIntegradorBack.Infrastructure.Context
             modelBuilder.Entity<RefreshToken>(b => {
                 b.HasOne(x => x.User).WithMany(x => x.RefreshTokens).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
                 b.HasIndex(x => x.Token).IsUnique();
-                Timestamp(b, "ExpiresAt"); Timestamp(b, "CreatedAt");
+                UtcTimestamp(b, "ExpiresAt"); UtcTimestamp(b, "CreatedAt");
             });
             base.OnModelCreating(modelBuilder);
         }
@@ -99,5 +99,7 @@ namespace ProjetoIntegradorBack.Infrastructure.Context
 
 
         private static void Timestamp<TEntity>(EntityTypeBuilder<TEntity> b, string property) where TEntity : class => b.Property(property).HasColumnType("timestamp without time zone");
+
+                private static void UtcTimestamp<TEntity>(EntityTypeBuilder<TEntity> b, string property) where TEntity : class => b.Property(property).HasColumnType("timestamp with time zone");
     }
 }
