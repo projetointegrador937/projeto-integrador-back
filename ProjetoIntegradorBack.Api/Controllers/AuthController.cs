@@ -44,7 +44,7 @@ public sealed class AuthController(
 
             if (refreshResult.IsFailure)
             {
-                logger.LogError("Não foi possível criar o refresh token para o usuário {UserId}: {Failure}", user.Id, refreshResult.Failure);
+                logger.LogError("Falha ao criar refresh token. UserId: {UserId}, Failure: {Failure}", user.Id, refreshResult.Failure);
                 return Problem("Não foi possível concluir o login.", statusCode: StatusCodes.Status500InternalServerError);
             }
 
@@ -57,7 +57,7 @@ public sealed class AuthController(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Erro inesperado ao autenticar o e-mail {Email}", command.Email);
+            logger.LogError(exception, "Erro inesperado no login. Método: {Method}, Rota: {Path}, Email: {Email}, UserAgent: {UserAgent}", Request.Method, Request.Path, command.Email, Request.Headers.UserAgent.ToString());
             return Problem("Não foi possível concluir o login.", statusCode: StatusCodes.Status500InternalServerError);
         }
     }

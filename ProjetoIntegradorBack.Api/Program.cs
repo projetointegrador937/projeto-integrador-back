@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ProjetoIntegradorBack.Api.Services;
+using ProjetoIntegradorBack.Api.Middleware;
 
 var envDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
 while (envDirectory is not null && !File.Exists(Path.Combine(envDirectory.FullName, ".env")))
@@ -139,6 +140,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();

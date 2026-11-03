@@ -26,7 +26,8 @@ namespace ProjetoIntegradorBack.Infrastructure.Repositories
             }
             catch (Exception ex)
             {
-                return Result<string>.AsFailure(new Failure(ex.HResult,$"Error adding user: {ex.Message}"));
+                _logger.LogError(ex, "Falha ao adicionar usuário. UserId: {UserId}, Email: {Email}", user.Id, user.Email);
+                                return Result<string>.AsFailure(new Failure(500, "Não foi possível adicionar o usuário."));
             }
         }
         public async Task<Result<string>> DeleteUserAsync(Guid id)
@@ -45,7 +46,7 @@ namespace ProjetoIntegradorBack.Infrastructure.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving users");
+                _logger.LogError(ex, "Falha ao listar usuários. Operação: {Operation}", nameof(GetAllUsersAsync));
 
                 return Result<IEnumerable<ClientUser>>.AsFailure(
                     new Failure(ex.HResult, "An unexpected error occurred.")
