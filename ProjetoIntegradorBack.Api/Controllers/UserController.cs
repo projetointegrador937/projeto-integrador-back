@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ProjetoIntegradorBack.Api.Controllers
 {
     [ApiController]
-    [Route("api/users")]
+    [Route("api/v1/users")]
     public class UserController : ControllerBase
     {
         private readonly Mediator _medaytor;

@@ -63,7 +63,7 @@ namespace ProjetoIntegradorBack.Infrastructure.Context
                     e.Property(x => x.Latitude).HasColumnName("Latitude");
                     e.Property(x => x.Longitude).HasColumnName("Longitude");
                 });
-                Timestamp(b, "CreatedAt"); Timestamp(b, "UpdatedAt");
+                UtcTimestamp(b, "CreatedAt"); UtcTimestamp(b, "UpdatedAt");
             });
             modelBuilder.Entity<Employee>(b => {
                 b.HasOne(x => x.Establishment).WithMany(x => x.Employees).HasForeignKey(x => x.EstablishmentId).OnDelete(DeleteBehavior.Restrict);
@@ -100,6 +100,6 @@ namespace ProjetoIntegradorBack.Infrastructure.Context
 
         private static void Timestamp<TEntity>(EntityTypeBuilder<TEntity> b, string property) where TEntity : class => b.Property(property).HasColumnType("timestamp without time zone");
 
-                private static void UtcTimestamp<TEntity>(EntityTypeBuilder<TEntity> b, string property) where TEntity : class => b.Property(property).HasColumnType("timestamp with time zone");
+        private static void UtcTimestamp<TEntity>(EntityTypeBuilder<TEntity> b, string property) where TEntity : class => b.Property(property).HasColumnType("timestamp with time zone");
     }
 }
