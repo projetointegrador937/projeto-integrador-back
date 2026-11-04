@@ -23,13 +23,20 @@ public sealed class ExceptionHandlingMiddleware(
         {
             var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
 
+            var (statusCode, title) = exception switch
+            {
+                KeyNotFoundException => (StatusCodes.Status404NotFound, "Recurso não encontrado"),
+                InvalidOperationException => (StatusCodes.Status400BadRequest, "Não foi possível concluir a operação"),
+                _ => (StatusCodes.Status500InternalServerError, "Erro interno do servidor")
+            };
+
             logger.LogError(exception,
-                "Erro não tratado. TraceId: {TraceId}, Método: {Method}, Rota: {Path}, " +
-                "Status esperado: {StatusCode}, Usuário: {User}, IP: {RemoteIp}",
+                "Erro na requisição. TraceId: {TraceId}, Método: {Method}, Rota: {Path}, " +
+                "Status: {StatusCode}, Usuário: {User}, IP: {RemoteIp}",
                 traceId,
                 context.Request.Method,
                 context.Request.Path,
-                (int)HttpStatusCode.InternalServerError,
+                statusCode,
                 context.User.Identity?.Name ?? "anônimo",
                 context.Connection.RemoteIpAddress?.ToString() ?? "desconhecido");
 
@@ -37,15 +44,15 @@ public sealed class ExceptionHandlingMiddleware(
                 throw;
 
             context.Response.Clear();
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.StatusCode = statusCode;
             context.Response.ContentType = "application/problem+json";
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(new
             {
-                type = "https://httpstatuses.com/500",
-                title = "Erro interno do servidor",
-                status = StatusCodes.Status500InternalServerError,
-                detail = "Ocorreu um erro inesperado. Use o traceId para localizar os detalhes nos logs.",
+                type = $"https://httpstatuses.com/{statusCode}",
+                title,
+                status = statusCode,
+                detail = exception.Message,
                 traceId
             }));
         }

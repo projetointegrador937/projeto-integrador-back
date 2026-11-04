@@ -68,7 +68,7 @@ namespace ProjetoIntegradorBack.Infrastructure.Context
             modelBuilder.Entity<Employee>(b => {
                 b.HasOne(x => x.Establishment).WithMany(x => x.Employees).HasForeignKey(x => x.EstablishmentId).OnDelete(DeleteBehavior.Restrict);
                 b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
-                Timestamp(b, "CreatedAt");
+                UtcTimestamp(b, "CreatedAt");
             });
             modelBuilder.Entity<Service>(b => b.HasOne(x => x.Establishment).WithMany(x => x.Services).HasForeignKey(x => x.EstablishmentId).OnDelete(DeleteBehavior.Restrict));
             modelBuilder.Entity<Appointment>(b => {
