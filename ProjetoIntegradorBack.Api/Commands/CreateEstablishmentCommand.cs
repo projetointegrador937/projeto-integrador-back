@@ -6,4 +6,4 @@ using Prime.Architecture.Mediator.Standard.Requests;
 
 namespace ProjetoIntegradorBack.Api.Commands;
 
-public record CreateEstablishmentCommand(string LegalName, string TradeName, string Cnpj, string? StateRegistration, string Phone, string Email, string Description, [property: JsonConverter(typeof(BusinessHoursJsonConverter))] string BusinessHours, AddressDto Address) : IRequest<EstablishmentDto>;
+public record CreateEstablishmentCommand(string LegalName, string TradeName, string Cnpj, string? StateRegistration, string Phone, string Email, [property: JsonConverter(typeof(BusinessHoursJsonConverter))] string BusinessHours, AddressDto Address) : IRequest<EstablishmentDto>;

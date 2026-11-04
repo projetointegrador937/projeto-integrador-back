@@ -11,7 +11,7 @@ namespace ProjetoIntegradorBack.Api.Handlers.NavalhaCorte;
 public sealed class CriarEstablishmentHandler(IEstablishmentRepository repository, IMapper mapper) : IRequestHandler<CreateEstablishmentCommand, EstablishmentDto>
 {
     public async Task<EstablishmentDto> Handle(CreateEstablishmentCommand r, CancellationToken ct)
-    { var x=await repository.AddAsync(new Establishment{LegalName=r.LegalName,TradeName=r.TradeName,Cnpj=r.Cnpj,StateRegistration=r.StateRegistration,Phone=r.Phone,Email=r.Email,Description=r.Description,BusinessHours=r.BusinessHours,Address=mapper.Map<AddressDto,Address>(r.Address)},ct); if(x.IsFailure)throw new InvalidOperationException(x.Failure!.ToString()); return mapper.Map<Establishment,EstablishmentDto>(x.Success!); }
+    { var x=await repository.AddAsync(new Establishment{LegalName=r.LegalName,TradeName=r.TradeName,Cnpj=r.Cnpj,StateRegistration=r.StateRegistration,Phone=r.Phone,Email=r.Email,BusinessHours=r.BusinessHours,Address=mapper.Map<AddressDto,Address>(r.Address)},ct); if(x.IsFailure)throw new InvalidOperationException(x.Failure!.ToString()); return mapper.Map<Establishment,EstablishmentDto>(x.Success!); }
 }
 
 public sealed class UpdateEstablishmentHandler(IEstablishmentRepository repository, IMapper mapper) : IRequestHandler<UpdateEstablishmentCommand, EstablishmentDto>

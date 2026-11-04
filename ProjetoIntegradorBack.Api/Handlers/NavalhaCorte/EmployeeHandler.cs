@@ -3,6 +3,7 @@ using ProjetoIntegradorBack.Api.Queries;
 using ProjetoIntegradorBack.Domain.DTOs;
 using ProjetoIntegradorBack.Domain.Entities;
 using ProjetoIntegradorBack.Domain.Interfaces;
+using BCryptHash = BCrypt.Net.BCrypt;
 using Prime.Architecture.Mapper.Interfaces;
 using Prime.Architecture.Mediator.Standard.Requests;
 
@@ -18,23 +19,43 @@ public sealed class ListEmployeesHandler(IEmployeeRepository repository, IMapper
     }
 }
 
-public sealed class CreateEmployeeHandler(IEmployeeRepository repository, IMapper mapper)
+public sealed class CreateEmployeeHandler(IEmployeeRepository repository, IUserRepository userRepository, IMapper mapper)
     : IRequestHandler<CreateEmployeeCommand, EmployeeDto>
 {
     public async Task<EmployeeDto> Handle(CreateEmployeeCommand request, CancellationToken ct)
     {
+        var existingUser = await userRepository.GetUserByEmailAsync(request.Email);
+        if (existingUser.IsSuccess)
+            throw new InvalidOperationException("E-mail já cadastrado.");
+
+        var userResult = ClientUser.CreateBarber(
+            request.Email,
+            BCryptHash.HashPassword(request.Password),
+            request.ProfilePictureUrl,
+            request.Name);
+        if (userResult.IsFailure)
+            throw new InvalidOperationException(userResult.Failure!.ToString());
+
+        var savedUser = await userRepository.AddUserAsync(userResult.Success!);
+        if (savedUser.IsFailure)
+            throw new InvalidOperationException(savedUser.Failure!.ToString());
+
         var result = await repository.AddAsync(new Employee
         {
             EstablishmentId = request.EstablishmentId,
-            UserId = request.UserId,
+            UserId = userResult.Success!.Id,
             Name = request.Name,
             Email = request.Email,
             Phone = request.Phone,
             Role = request.Role,
-            CommissionPercentage = request.CommissionPercentage,
             IsActive = true
         }, ct);
-        if (result.IsFailure) throw new InvalidOperationException(result.Failure!.ToString());
+        if (result.IsFailure)
+        {
+            // Evita deixar um usuário órfão caso a criação do vínculo falhe.
+            await userRepository.DeleteUserAsync(userResult.Success!.Id);
+            throw new InvalidOperationException(result.Failure!.ToString());
+        }
         return mapper.Map<Employee, EmployeeDto>(result.Success!);
     }
 }
