@@ -40,3 +40,19 @@ public sealed class UpdateServiceHandler(IServiceRepository repository, IMapper 
         return mapper.Map<DomainService, ServiceDto>(result.Success!);
     }
 }
+
+public sealed class DeactivateServiceHandler(IServiceRepository repository)
+    : IRequestHandler<DeactivateServiceCommand, string>
+{
+    public async Task<string> Handle(DeactivateServiceCommand request, CancellationToken ct)
+    {
+        var found = await repository.GetPorIdAsync(request.Id, ct);
+        if (found.IsFailure) throw new KeyNotFoundException("Serviço não encontrado.");
+        if (found.Success!.EstablishmentId != request.EstablishmentId)
+            throw new InvalidOperationException("Serviço não pertence ao estabelecimento informado.");
+
+        var result = await repository.DesativarAsync(request.Id, ct);
+        if (result.IsFailure) throw new InvalidOperationException(result.Failure!.ToString());
+        return result.Success!;
+    }
+}

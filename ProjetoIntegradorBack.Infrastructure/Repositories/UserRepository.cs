@@ -32,7 +32,19 @@ namespace ProjetoIntegradorBack.Infrastructure.Repositories
         }
         public async Task<Result<string>> DeleteUserAsync(Guid id)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var user = await _context.Users.FindAsync(id);
+                if (user == null) return Result<string>.AsFailure(new Failure(404, "Usuário não encontrado."));
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+                return Result<string>.AsSuccess("Usuário removido com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao remover usuário. UserId: {UserId}", id);
+                return Result<string>.AsFailure(new Failure(500, "Não foi possível remover o usuário."));
+            }
         }
 
         public async Task<Result<IEnumerable<ClientUser>>> GetAllUsersAsync()
@@ -80,9 +92,34 @@ namespace ProjetoIntegradorBack.Infrastructure.Repositories
             return user == null ? Result<ClientUser>.AsFailure(new Failure(404, "Usuário não encontrado.")) : Result<ClientUser>.AsSuccess(user);
         }
 
-        public Task<Result<string>> UpdateUserAsync(ClientUser user)
+        public async Task<Result<string>> UpdateUserAsync(ClientUser user)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var current = await _context.Users.Include(x => x.Address).SingleOrDefaultAsync(x => x.Id == user.Id);
+                if (current == null) return Result<string>.AsFailure(new Failure(404, "Usuário não encontrado."));
+                current.Name = user.Name;
+                current.Phone = user.Phone;
+                current.ProfilePictureUrl = user.ProfilePictureUrl;
+                if (user.Address != null)
+                {
+                    if (current.Address == null) current.Address = user.Address;
+                    else
+                    {
+                        current.Address.Street = user.Address.Street; current.Address.Number = user.Address.Number;
+                        current.Address.AdditionalInfo = user.Address.AdditionalInfo; current.Address.Neighborhood = user.Address.Neighborhood;
+                        current.Address.PostalCode = user.Address.PostalCode; current.Address.City = user.Address.City;
+                        current.Address.State = user.Address.State; current.Address.Latitude = user.Address.Latitude; current.Address.Longitude = user.Address.Longitude;
+                    }
+                }
+                await _context.SaveChangesAsync();
+                return Result<string>.AsSuccess("Usuário atualizado com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Falha ao atualizar usuário. UserId: {UserId}", user.Id);
+                return Result<string>.AsFailure(new Failure(500, "Não foi possível atualizar o usuário."));
+            }
         }
     }
 }

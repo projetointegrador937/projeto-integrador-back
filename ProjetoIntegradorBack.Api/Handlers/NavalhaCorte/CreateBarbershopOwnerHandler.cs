@@ -23,7 +23,13 @@ public sealed class CreateBarbershopOwnerHandler(IUserRepository repository)
             throw new InvalidOperationException(resultado.Failure!.ToString());
 
         var user = resultado.Success!;
-        await repository.AddUserAsync(user);
+        var existingUser = await repository.GetUserByEmailAsync(request.Email);
+        if (existingUser.IsSuccess)
+            throw new InvalidOperationException("E-mail já cadastrado.");
+
+        var savedUser = await repository.AddUserAsync(user);
+        if (savedUser.IsFailure)
+            throw new InvalidOperationException(savedUser.Failure!.ToString());
 
         return new UserSummaryDto
         {
