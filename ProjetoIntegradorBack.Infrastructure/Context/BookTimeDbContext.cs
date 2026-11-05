@@ -76,7 +76,7 @@ namespace ProjetoIntegradorBack.Infrastructure.Context
                 b.HasOne(x => x.Establishment).WithMany(x => x.Appointments).HasForeignKey(x => x.EstablishmentId).OnDelete(DeleteBehavior.Restrict);
                 b.HasOne(x => x.Employee).WithMany(x => x.Appointments).HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
                 b.HasOne(x => x.Service).WithMany(x => x.Appointments).HasForeignKey(x => x.ServiceId).OnDelete(DeleteBehavior.Restrict);
-                Timestamp(b, "DateTime"); Timestamp(b, "CreatedAt"); Timestamp(b, "UpdatedAt");
+                UtcTimestamp(b, "DateTime"); UtcTimestamp(b, "CreatedAt"); UtcTimestamp(b, "UpdatedAt");
             });
             Timestamp(modelBuilder.Entity<Contact>(), "CreatedAt");
             modelBuilder.Entity<RefreshToken>(b => {

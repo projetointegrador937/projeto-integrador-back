@@ -38,13 +38,13 @@ public sealed class GetAvailabilityHandler(
         }
 
         // 3. Extrai janela de funcionamento do dia
-        var (open, close) = ParseBusinessHoursForDay(establishment.BusinessHours, request.Date.DayOfWeek);
+        var (open, close, breakStart, breakEnd) = ParseBusinessHoursForDay(establishment.BusinessHours, request.Date.DayOfWeek);
         if (open is null || close is null)
             return []; // estabelecimento fechado neste dia
 
         // 4. Carrega agendamentos do dia para o funcionário (ou para o estabelecimento inteiro)
-        var dayStart = request.Date.ToDateTime(open.Value);
-        var dayEnd   = request.Date.ToDateTime(close.Value);
+        var dayStart = DateTime.SpecifyKind(request.Date.ToDateTime(open.Value), DateTimeKind.Utc);
+        var dayEnd   = DateTime.SpecifyKind(request.Date.ToDateTime(close.Value), DateTimeKind.Utc);
 
         IReadOnlyList<Appointment> existing;
         if (request.EmployeeId.HasValue)
@@ -63,10 +63,14 @@ public sealed class GetAvailabilityHandler(
         var cursor = open.Value;
         while (cursor.Add(TimeSpan.FromMinutes(serviceDuration)) <= close.Value)
         {
-            var slotStart = request.Date.ToDateTime(cursor);
+            var slotStart = DateTime.SpecifyKind(request.Date.ToDateTime(cursor), DateTimeKind.Utc);
             var slotEnd   = slotStart.AddMinutes(serviceDuration);
 
-            bool occupied = existing.Any(a =>
+            bool inBreak = breakStart.HasValue && breakEnd.HasValue &&
+                           slotStart < DateTime.SpecifyKind(request.Date.ToDateTime(breakEnd.Value), DateTimeKind.Utc) &&
+                           slotEnd > DateTime.SpecifyKind(request.Date.ToDateTime(breakStart.Value), DateTimeKind.Utc);
+
+            bool occupied = inBreak || existing.Any(a =>
             {
                 var aStart = a.DateTime;
                 // duração do serviço já agendado (pode ser diferente do solicitado)
@@ -93,7 +97,7 @@ public sealed class GetAvailabilityHandler(
     //   1. JSON array: [{ "dayOfWeek": 1, "start": "09:00", "end": "18:00" }, ...]
     //   2. String legível: "Seg-Sex 09:00-18:00" (fallback: retorna 09:00-18:00)
     // -----------------------------------------------------------------------
-    private static (TimeOnly? open, TimeOnly? close) ParseBusinessHoursForDay(string businessHours, DayOfWeek day)
+    private static (TimeOnly? open, TimeOnly? close, TimeOnly? breakStart, TimeOnly? breakEnd) ParseBusinessHoursForDay(string businessHours, DayOfWeek day)
     {
         if (string.IsNullOrWhiteSpace(businessHours))
             return DefaultWindow();
@@ -106,7 +110,7 @@ public sealed class GetAvailabilityHandler(
                 foreach (var entry in json.EnumerateArray())
                 {
                     int? dow = null;
-                    string? start = null, end = null;
+                    string? start = null, end = null, breakStart = null, breakEnd = null;
 
                     if (entry.TryGetProperty("dayOfWeek", out var dowEl))
                         dow = dowEl.GetInt32();
@@ -123,15 +127,27 @@ public sealed class GetAvailabilityHandler(
                     else if (entry.TryGetProperty("End", out var endEl2))
                         end = endEl2.GetString();
 
+                    if (entry.TryGetProperty("breakStart", out var breakStartEl))
+                        breakStart = breakStartEl.GetString();
+                    else if (entry.TryGetProperty("BreakStart", out var breakStartEl2))
+                        breakStart = breakStartEl2.GetString();
+
+                    if (entry.TryGetProperty("breakEnd", out var breakEndEl))
+                        breakEnd = breakEndEl.GetString();
+                    else if (entry.TryGetProperty("BreakEnd", out var breakEndEl2))
+                        breakEnd = breakEndEl2.GetString();
+
                     if (dow.HasValue && (int)day == dow.Value && start is not null && end is not null)
                     {
                         return (
                             TimeOnly.TryParse(start, out var o) ? o : null,
-                            TimeOnly.TryParse(end,   out var c) ? c : null
+                            TimeOnly.TryParse(end,   out var c) ? c : null,
+                            TimeOnly.TryParse(breakStart, out var bs) ? bs : null,
+                            TimeOnly.TryParse(breakEnd, out var be) ? be : null
                         );
                     }
                 }
-                return (null, null); // dia não encontrado no array → fechado
+                return (null, null, null, null); // dia não encontrado no array → fechado
             }
         }
         catch (JsonException) { /* não é JSON válido, usa fallback */ }
@@ -140,6 +156,6 @@ public sealed class GetAvailabilityHandler(
         return DefaultWindow();
     }
 
-    private static (TimeOnly?, TimeOnly?) DefaultWindow() =>
-        (new TimeOnly(9, 0), new TimeOnly(18, 0));
+    private static (TimeOnly?, TimeOnly?, TimeOnly?, TimeOnly?) DefaultWindow() =>
+        (new TimeOnly(9, 0), new TimeOnly(18, 0), null, null);
 }

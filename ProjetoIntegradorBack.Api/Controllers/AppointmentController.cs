@@ -42,5 +42,5 @@ public class AppointmentController(Mediator medaytor) : ControllerBase
     [Authorize(Policy = "Cliente")]
     [HttpPatch("{id:guid}/cancel")]
     public async Task<IActionResult> Cancelar(Guid id, CancellationToken ct = default)
-        => Ok(await medaytor.Send(new CancelAppointmentCommand(id), ct));
+        => Ok(await medaytor.Send(new CancelAppointmentCommand(id, CurrentUserId), ct));
 }

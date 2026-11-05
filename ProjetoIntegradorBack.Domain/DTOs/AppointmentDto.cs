@@ -11,11 +11,23 @@ namespace ProjetoIntegradorBack.Domain.DTOs
         [JsonPropertyName("clienteId")]
         public Guid ClientId { get; set; }
 
+        [JsonPropertyName("nomeCliente")]
+        public string NameClient { get; set; } = string.Empty;
+
         [JsonPropertyName("estabelecimentoId")]
         public Guid EstablishmentId { get; set; }
 
         [JsonPropertyName("nomeEstabelecimento")]
         public string NameEstablishment { get; set; } = string.Empty;
+
+        [JsonPropertyName("enderecoEstabelecimento")]
+        public AddressDto? EstablishmentAddress { get; set; }
+
+        [JsonPropertyName("telefoneEstabelecimento")]
+        public string EstablishmentPhone { get; set; } = string.Empty;
+
+        [JsonPropertyName("emailEstabelecimento")]
+        public string EstablishmentEmail { get; set; } = string.Empty;
 
         [JsonPropertyName("funcionarioId")]
         public Guid EmployeeId { get; set; }

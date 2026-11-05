@@ -13,6 +13,7 @@ namespace ProjetoIntegradorBack.Domain.Interfaces
         Task<Result<IReadOnlyList<Appointment>>> GetPorEmployeeNoDateAsync(Guid employeeId, DateOnly day, CancellationToken ct = default);
         Task<Result<Appointment>> AddAsync(Appointment agendamento, CancellationToken ct = default);
         Task<Result<Appointment>> UpdateAsync(Appointment agendamento, CancellationToken ct = default);
+        Task<Result<bool>> HasActiveAppointmentAsync(Guid clientId, DateTime now, CancellationToken ct = default);
         Task<Result<bool>> HasTimeConflictAsync(Guid employeeId, DateTime dateHora, int duracaoMin, CancellationToken ct = default);
         Task<Result<IReadOnlyList<Appointment>>> GetPorEstablishmentNoPeriodoAsync(Guid establishmentId, DateTime start, DateTime end, CancellationToken ct = default);
     }
