@@ -41,8 +41,17 @@ public sealed class CriarAppointmentNovoHandler(IAppointmentRepository repositor
         var conflict = await repository.HasTimeConflictAsync(request.EmployeeId, appointmentDateTime, service.Success!.DurationMinutes, ct);
         if (conflict.IsSuccess && conflict.Success) throw new InvalidOperationException("Conflito de horário.");
         var result = await repository.AddAsync(new Appointment { ClientId = request.ClientId, EstablishmentId = request.EstablishmentId, EmployeeId = request.EmployeeId, ServiceId = request.ServiceId, DateTime = appointmentDateTime, Notes = request.Notes, TotalAmount = service.Success.Price, Status = StatusAppointment.Pendente }, ct);
-        if (result.IsFailure) throw new InvalidOperationException(result.Failure!.ToString());
-        return mapper.Map<Appointment, AppointmentDto>(result.Success!);
+        if (result.IsFailure || result.Success is null)
+            throw new InvalidOperationException(result.Failure?.ToString() ?? "Não foi possível criar o agendamento.");
+
+        // AddAsync retorna a entidade salva sem garantir as navegações carregadas.
+        // Recarregamos o registro para que o DTO contenha cliente, estabelecimento,
+        // endereço, barbeiro e serviço antes de executar o mapeamento.
+        var saved = await repository.GetPorIdAsync(result.Success.Id, ct);
+        if (saved.IsFailure || saved.Success is null)
+            throw new InvalidOperationException("Agendamento criado, mas não foi possível carregar seus dados completos.");
+
+        return mapper.Map<Appointment, AppointmentDto>(saved.Success);
     }
 }
 
@@ -69,8 +78,13 @@ public sealed class CancelarAppointmentHandler(IAppointmentRepository repository
         if (appointment.ClientId != request.ClientId)
             throw new UnauthorizedAccessException("Você não pode cancelar este agendamento.");
 
-        if (appointment.Status is StatusAppointment.Cancelado or StatusAppointment.Concluido)
-            throw new InvalidOperationException("Este agendamento não pode mais ser cancelado.");
+        // Cancelamento é idempotente: se a primeira requisição já cancelou,
+        // devolvemos o estado atual em vez de gerar erro em um segundo clique.
+        if (appointment.Status == StatusAppointment.Cancelado)
+            return mapper.Map<Appointment, AppointmentDto>(appointment);
+
+        if (appointment.Status == StatusAppointment.Concluido)
+            throw new InvalidOperationException("Este agendamento finalizado não pode mais ser cancelado.");
 
         appointment.Status = StatusAppointment.Cancelado;
         var result = await repository.UpdateAsync(appointment, ct);

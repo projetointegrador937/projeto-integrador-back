@@ -6,6 +6,7 @@ namespace ProjetoIntegradorBack.Domain.Interfaces
     public interface IEmployeeRepository
     {
         Task<Result<Employee>> GetPorIdAsync(Guid id, CancellationToken ct = default);
+                Task<Result<Employee>> GetPorUserIdAsync(Guid userId, CancellationToken ct = default);
         Task<Result<IReadOnlyList<Employee>>> ListPorEstablishmentAsync(Guid establishmentId, CancellationToken ct = default);
         Task<Result<Employee>> AddAsync(Employee funcionario, CancellationToken ct = default);
         Task<Result<Employee>> UpdateAsync(Employee funcionario, CancellationToken ct = default);

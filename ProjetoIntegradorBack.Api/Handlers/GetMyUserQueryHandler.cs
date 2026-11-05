@@ -9,6 +9,7 @@ namespace ProjetoIntegradorBack.Api.Handlers.NavalhaCorte;
 
 public sealed class GetMyUserQueryHandler(
     IUserRepository repository,
+    IEmployeeRepository employeeRepository,
     IHttpContextAccessor httpContextAccessor) : IRequestHandler<GetMyUserQuery, UserSummaryDto>
 {
     public async Task<UserSummaryDto> Handle(GetMyUserQuery request, CancellationToken ct)
@@ -25,9 +26,12 @@ public sealed class GetMyUserQueryHandler(
 
         var user = result.Success!;
 
+        var employee = await employeeRepository.GetPorUserIdAsync(user.Id, ct);
+
         return new UserSummaryDto
         {
             Id = user.Id,
+            EmployeeId = employee.IsSuccess ? employee.Success!.Id : null,
             Name = user.Name,
             Contact = user.Phone,
             Address = user.Address is null ? null : new AddressDto
